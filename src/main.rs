@@ -17,9 +17,6 @@ use raqote::{DrawTarget, SolidSource};
 use forcelayout::*;
 use drawable::*;
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 360;
-
 fn main() {
     let mut bubbles = createDataset::create_bubbles(50);
     let mut edges = createDataset::create_edges(bubbles.len());
@@ -28,11 +25,14 @@ fn main() {
     // println!("{:?}", edges.len());
     // forcelayout(&mut bubbles, &mut edges);
 
+    let mut window_option = WindowOptions::default();
+    window_option.resize = true;
+
     let mut window = Window::new(
-        "forcelayout in rust - ESC to exit",
-        WIDTH,
-        HEIGHT,
-        WindowOptions::default(),
+        "forcelayout in rust - ESC to exit, Space to replay",
+        640,
+        640,
+        window_option,
     )
     .unwrap_or_else(|e| {
         panic!("{}", e);
@@ -41,13 +41,24 @@ fn main() {
     // Limit to max ~60 fps update rate
     // window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
+
     let size = window.get_size();
-
-    let target_rect = Rect{origin: Vector2{x: 60.0, y: 60.0}, width: (size.0 - 120) as f64, height: (size.1 - 120) as f64};
-
     let mut dt = DrawTarget::new(size.0 as i32, size.1 as i32);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        let size = window.get_size();
+        if (size.0 as i32) != dt.width() || (size.1 as i32) != dt.height() {
+            dt = DrawTarget::new(size.0 as i32, size.1 as i32);
+        }
+
+        if window.is_key_down(Key::Space) {
+            bubbles = createDataset::create_bubbles(50);
+            edges = createDataset::create_edges(bubbles.len());
+        }
+
+        let padding = usize::min(size.0, size.1) as f64 * 0.1;
+
+        let target_rect = Rect{origin: Vector2{x: padding, y: padding}, width: (size.0 - ((2.0*padding) as usize)) as f64, height: (size.1 - ((2.0*padding) as usize)) as f64};
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         forcelayout(&mut bubbles, &mut edges);
 
@@ -67,23 +78,10 @@ fn main() {
 
         for bubble in bubbles.iter() {
             let p = & bubble.position;
-            let s = 0.0;
-            let p0_x = p.x - s;
-            let p0_y = p.y - s;
-            let p1_x = p.x + s;
-            let p1_y = p.y + s;
-            if min_x > p0_x {
-                min_x = p0_x;
-            }
-            if max_x < p1_x {
-                max_x = p1_x;
-            }
-            if min_y > p0_y {
-                min_y = p0_y;
-            }
-            if max_y < p1_y {
-                max_y = p1_y;
-            }
+            min_x = min_x.min(p.x);
+            max_x = max_x.max(p.x);
+            min_y = min_y.min(p.y);
+            max_y = max_y.max(p.y);
         }
 
         // println!("{} {} {} {}", min_x, max_x, min_y, max_y);
@@ -104,7 +102,7 @@ fn main() {
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window
-            .update_with_buffer(dt.get_data(), WIDTH, HEIGHT)
+            .update_with_buffer(dt.get_data(), dt.width() as usize, dt.height() as usize)
             .unwrap();
     }
 }
