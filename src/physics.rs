@@ -1,10 +1,10 @@
 use super::math::*;
 pub trait Physics {
-    fn getM(&self) -> f64;
-    fn getV(&self) -> &Vector2;
-    fn setV(&mut self, v: &Vector2) -> ();
-    fn getP(&self) -> &Vector2;
-    fn setP(&mut self, p: &Vector2) -> ();
-    fn getA(&self) -> &Vector2;
-    fn setA(&mut self, a: &Vector2) -> ();
+    fn get_m(&self) -> f64;
+    fn get_v(&self) -> &Vector2;
+    fn set_v(&mut self, v: &Vector2) -> ();
+    fn get_p(&self) -> &Vector2;
+    fn set_p(&mut self, p: &Vector2) -> ();
+    fn get_a(&self) -> &Vector2;
+    fn set_a(&mut self, a: &Vector2) -> ();
 }

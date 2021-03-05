@@ -13,31 +13,31 @@ pub struct Bubble {
 }
 
 impl Physics for Bubble {
-    fn getM(&self) -> f64 {
+    fn get_m(&self) -> f64 {
         self.size
     }
 
-    fn getV(&self) -> &Vector2 {
+    fn get_v(&self) -> &Vector2 {
         &self.v
     }
 
-    fn setV(&mut self, v: &Vector2) -> () {
+    fn set_v(&mut self, v: &Vector2) -> () {
         Vector2::assign(&mut self.v, v);
     }
 
-    fn getP(&self) -> &Vector2 {
+    fn get_p(&self) -> &Vector2 {
         &self.position
     }
 
-    fn setP(&mut self, p: &Vector2) -> () {
+    fn set_p(&mut self, p: &Vector2) -> () {
         Vector2::assign(&mut self.position, p);
     }
 
-    fn getA(&self) -> &Vector2 {
+    fn get_a(&self) -> &Vector2 {
         &self.a
     }
 
-    fn setA(&mut self, a: &Vector2) -> () {
+    fn set_a(&mut self, a: &Vector2) -> () {
         Vector2::assign(&mut self.a, a);
     }
 }

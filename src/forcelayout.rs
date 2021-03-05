@@ -21,8 +21,8 @@ pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
                 let imr_b = &mut bubbles[j];
                 let bubble_b = imr_b as *mut Bubble;
 
-                let m_a = (*bubble_a).getM();
-                let m_b = (*bubble_b).getM();
+                let m_a = (*bubble_a).get_m();
+                let m_b = (*bubble_b).get_m();
 
                 // println!("position {:?} {:?}", (*bubble_a).position.clone(), (*bubble_b).position.clone());
 
@@ -48,8 +48,8 @@ pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
         let bubble_from = (& mut bubbles[edge.from]) as *mut Bubble;
         let bubble_to = (& mut bubbles[edge.to]) as *mut Bubble;
         unsafe {
-            let m_from = (*bubble_from).getM();
-            let m_to = (*bubble_to).getM();
+            let m_from = (*bubble_from).get_m();
+            let m_to = (*bubble_to).get_m();
 
             let d_from_to = (*bubble_to).position.sub(&(*bubble_from).position);
             let pull_force_factor = 1000000.0;

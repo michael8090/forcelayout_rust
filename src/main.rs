@@ -1,7 +1,7 @@
 mod math;
 mod bubble;
 mod edge;
-mod createDataset;
+mod create_dataset;
 mod forcelayout;
 mod physics;
 mod drawable;
@@ -10,16 +10,16 @@ mod project;
 extern crate minifb;
 
 use math::{Rect, Vector2};
-use minifb::{Key, Scale, Window, WindowOptions};
-use rand::random;
+use minifb::{Key, Window, WindowOptions};
+
 use raqote::{DrawTarget, SolidSource};
 
 use forcelayout::*;
 use drawable::*;
 
 fn main() {
-    let mut bubbles = createDataset::create_bubbles(50);
-    let mut edges = createDataset::create_edges(bubbles.len());
+    let mut bubbles = create_dataset::create_bubbles(50);
+    let mut edges = create_dataset::create_edges(bubbles.len());
     // println!("bubbles: {:?}", bubbles);
     // println!("edges: {:?}", edges);
     // println!("{:?}", edges.len());
@@ -52,8 +52,8 @@ fn main() {
         }
 
         if window.is_key_down(Key::Space) {
-            bubbles = createDataset::create_bubbles(50);
-            edges = createDataset::create_edges(bubbles.len());
+            bubbles = create_dataset::create_bubbles(50);
+            edges = create_dataset::create_edges(bubbles.len());
         }
 
         let padding = usize::min(size.0, size.1) as f64 * 0.1;
