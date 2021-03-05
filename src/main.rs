@@ -42,16 +42,17 @@ fn main() {
     // window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
     let size = window.get_size();
-    let mut dt = DrawTarget::new(size.0 as i32, size.1 as i32);
 
-    let target_rect = Rect{origin: Vector2{x: 0.0, y: 0.0}, width: size.0 as f64, height: size.1 as f64};
+    let target_rect = Rect{origin: Vector2{x: 60.0, y: 60.0}, width: (size.0 - 60) as f64, height: (size.1 - 60) as f64};
+
+    let mut dt = DrawTarget::new(size.0 as i32, size.1 as i32);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         forcelayout(&mut bubbles, &mut edges);
 
-        println!("__________________________________");
-        println!("bubbles: {:?}", bubbles);
+        // println!("__________________________________");
+        // println!("bubbles: {:?}", bubbles);
         // println!("edges: {:?}", edges);
 
     
@@ -66,7 +67,7 @@ fn main() {
 
         for bubble in bubbles.iter() {
             let p = & bubble.position;
-            let s = & bubble.size;
+            let s = 0.0;
             let p0_x = p.x - s;
             let p0_y = p.y - s;
             let p1_x = p.x + s;
@@ -88,7 +89,7 @@ fn main() {
         // println!("{} {} {} {}", min_x, max_x, min_y, max_y);
 
         let source_rect = Rect{origin: Vector2{x: min_x, y: min_y}, width: max_x - min_x, height: max_y - min_y};
-        println!("st {:?}", source_rect);
+        // println!("st {:?}", source_rect);
         
 
         // println!("s {} {}", scale_x, scale_y);
