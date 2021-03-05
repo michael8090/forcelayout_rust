@@ -21,7 +21,7 @@ const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
 
 fn main() {
-    let mut bubbles = createDataset::create_bubbles(5);
+    let mut bubbles = createDataset::create_bubbles(50);
     let mut edges = createDataset::create_edges(bubbles.len());
     // println!("bubbles: {:?}", bubbles);
     // println!("edges: {:?}", edges);
@@ -43,7 +43,7 @@ fn main() {
 
     let size = window.get_size();
 
-    let target_rect = Rect{origin: Vector2{x: 60.0, y: 60.0}, width: (size.0 - 60) as f64, height: (size.1 - 60) as f64};
+    let target_rect = Rect{origin: Vector2{x: 60.0, y: 60.0}, width: (size.0 - 120) as f64, height: (size.1 - 120) as f64};
 
     let mut dt = DrawTarget::new(size.0 as i32, size.1 as i32);
 
