@@ -20,10 +20,6 @@ use drawable::*;
 fn main() {
     let mut bubbles = create_dataset::create_bubbles(50);
     let mut edges = create_dataset::create_edges(bubbles.len());
-    // println!("bubbles: {:?}", bubbles);
-    // println!("edges: {:?}", edges);
-    // println!("{:?}", edges.len());
-    // forcelayout(&mut bubbles, &mut edges);
 
     let mut window_option = WindowOptions::default();
     window_option.resize = true;
@@ -61,20 +57,12 @@ fn main() {
         let target_rect = Rect{origin: Vector2{x: padding, y: padding}, width: (size.0 - ((2.0*padding) as usize)) as f64, height: (size.1 - ((2.0*padding) as usize)) as f64};
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         forcelayout(&mut bubbles, &mut edges);
-
-        // println!("__________________________________");
-        // println!("bubbles: {:?}", bubbles);
-        // println!("edges: {:?}", edges);
-
     
         let b0 = &bubbles[0];
         let mut min_x = b0.position.x;
         let mut max_x = min_x;
         let mut min_y = b0.position.y;
         let mut max_y = min_y;
-
-        // println!("bb {}, {}", bubbles[0].position.x, bubbles[0].position.y);
-        // println!("bb {}, {}", bubbles[1].position.x, bubbles[1].position.y);
 
         for bubble in bubbles.iter() {
             let p = & bubble.position;
@@ -84,14 +72,7 @@ fn main() {
             max_y = max_y.max(p.y);
         }
 
-        // println!("{} {} {} {}", min_x, max_x, min_y, max_y);
-
         let source_rect = Rect{origin: Vector2{x: min_x, y: min_y}, width: max_x - min_x, height: max_y - min_y};
-        // println!("st {:?}", source_rect);
-        
-
-        // println!("s {} {}", scale_x, scale_y);
-
 
         for bubble in bubbles.iter() {
             bubble.draw(&mut dt, &source_rect, &target_rect);

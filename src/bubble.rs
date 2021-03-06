@@ -45,9 +45,7 @@ impl Physics for Bubble {
 impl Drawable for Bubble {
     fn draw(&self, dt: &mut raqote::DrawTarget, source_rect: &Rect, target_rect: &Rect) {
         let mut pb = PathBuilder::new();
-        // println!("{}， {}", self.position.x, self.position.y);
         let p = fit_into_view(&self.position, source_rect, target_rect);
-        // println!("{}， {}", p.x, p.y);
 
         pb.arc(p.x as f32, p.y as f32, self.size as f32, 0.0, 360.0);
         let path = pb.finish();

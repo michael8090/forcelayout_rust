@@ -11,8 +11,6 @@ pub fn fit_into_view(v: &Vector2, rect_source: &Rect, rect_target: &Rect) -> Vec
         scale_y = rect_target.height / rect_source.height;
     }
     
-    // println!("rect: {:?} {:?}", rect_source, rect_target);
-    
     let mut p = v.clone();
     p.x = (p.x - rect_source.origin.x ) * scale_x + rect_target.origin.x;
     p.y = (p.y - rect_source.origin.y) * scale_y + rect_target.origin.y;

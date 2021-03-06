@@ -24,15 +24,12 @@ pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
                 let m_a = (*bubble_a).get_m();
                 let m_b = (*bubble_b).get_m();
 
-                // println!("position {:?} {:?}", (*bubble_a).position.clone(), (*bubble_b).position.clone());
-
                 let d_ab = (*bubble_b).position.sub(&(*bubble_a).position);
                 let nd_ab = d_ab.norm();
                 let repulsive_force_factor = 1.0;
                 let repulsive_force = nd_ab.mul_s(repulsive_force_factor * m_a * m_b / d_ab.sqrt_len());
 
                 let a_a = repulsive_force.mul_s(-1.0 / m_a);
-                // println!("{:?}", a_a);
                 (*bubble_a).a = (*bubble_a).a.add(&a_a);
 
                 let a_b = a_a.mul_s(-1.0 * m_a / m_b);
@@ -55,7 +52,6 @@ pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
             let pull_force_factor = 1000000.0;
             let pull_force_from_to = d_from_to.mul_s(pull_force_factor);
             edge.pull_force = pull_force_from_to.len();
-            // println!("{}", edge.pull_force);
             let a_from = pull_force_from_to.mul_s(1.0/m_from);
             (*bubble_from).a = (*bubble_from).a.add(&a_from);
             let a_to = a_from.mul_s(-1.0 * m_from / m_to);
