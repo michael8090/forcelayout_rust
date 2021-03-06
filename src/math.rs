@@ -29,9 +29,9 @@ impl Vector2 {
     pub fn sub(&self, a: &Vector2) -> Self {
         self.vector_two_operand(a, |v0, v1| {v0 - v1})
     }
-    // pub fn mul(&self, a: &Vector2) -> Self {
-    //     self.vector_two_operand(a, |v0, v1| {v0 * v1})
-    // }
+    pub fn mul(&self, a: &Vector2) -> Self {
+        self.vector_two_operand(a, |v0, v1| {v0 * v1})
+    }
     pub fn mul_s(&self, a: f64) -> Self {
         self.scala_two_operand(a, |v0, v1| {v0 * v1})
     }

@@ -18,8 +18,10 @@ use forcelayout::*;
 use drawable::*;
 
 fn main() {
-    let mut bubbles = create_dataset::create_bubbles(50);
-    let mut edges = create_dataset::create_edges(bubbles.len());
+    let bubble_count = 100;
+    let group_size = 20;
+    let mut bubbles = create_dataset::create_bubbles(bubble_count);
+    let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
     let mut window_option = WindowOptions::default();
     window_option.resize = true;
@@ -48,8 +50,8 @@ fn main() {
         }
 
         if window.is_key_down(Key::Space) {
-            bubbles = create_dataset::create_bubbles(50);
-            edges = create_dataset::create_edges(bubbles.len());
+            bubbles = create_dataset::create_bubbles(bubble_count);
+            edges = create_dataset::create_edges(bubbles.len(), group_size);
         }
 
         let padding = usize::min(size.0, size.1) as f64 * 0.1;
@@ -71,6 +73,11 @@ fn main() {
             min_y = min_y.min(p.y);
             max_y = max_y.max(p.y);
         }
+
+        // min_x = -0.0;
+        // min_y = -0.0;
+        // max_x = 100.0;
+        // max_y = 100.0;
 
         let source_rect = Rect{origin: Vector2{x: min_x, y: min_y}, width: max_x - min_x, height: max_y - min_y};
 

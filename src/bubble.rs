@@ -1,6 +1,6 @@
-use raqote::{DrawOptions, PathBuilder, SolidSource, Source};
+use raqote::{DrawOptions, PathBuilder, SolidSource, Source, StrokeStyle};
 
-use crate::{drawable::Drawable, project::fit_into_view};
+use crate::{drawable::Drawable, project::{fit_into_view, project_direction_vector}};
 
 use super::math::*;
 use super::physics::*;
@@ -44,11 +44,26 @@ impl Physics for Bubble {
 
 impl Drawable for Bubble {
     fn draw(&self, dt: &mut raqote::DrawTarget, source_rect: &Rect, target_rect: &Rect) {
-        let mut pb = PathBuilder::new();
         let p = fit_into_view(&self.position, source_rect, target_rect);
-
+        let mut pb = PathBuilder::new();
         pb.arc(p.x as f32, p.y as f32, self.size as f32, 0.0, 360.0);
         let path = pb.finish();
-        dt.fill(&path, &Source::Solid(SolidSource{r: (self.a.sqrt_len()/1000.0 * 255.0) as u8, g: 100, b: 100, a: 255}), &DrawOptions::new())
+        dt.fill(&path, &Source::Solid(SolidSource{r: (self.a.len() * 5.0 * 255.0) as u8, g: 100, b: 100, a: 255}), &DrawOptions::new());
+        let mut pb = PathBuilder::new();
+        pb.arc(p.x as f32, p.y as f32, (self.size * 1.05) as f32, 0.0, 360.0);
+        let path = pb.finish();
+        let mut stroke_style = StrokeStyle::default();
+        stroke_style.width = ((self.size * 0.1) as f32).max(1.0);
+        dt.stroke(&path,&Source::Solid(SolidSource{r: 200, g: 200, b: 200, a: 255}), &stroke_style,&DrawOptions::new());
+
+        let mut v = project_direction_vector(&self.v, source_rect.width, source_rect.height, target_rect.width, target_rect.height);
+        let mut pb = PathBuilder::new();
+        let v_len = (v.len() + 1.0).log10() * 30.0;
+        v = v.norm().mul_s(v_len);
+        let end_point = v.add(&p);
+        pb.move_to(p.x as f32, p.y as f32);
+        pb.line_to(end_point.x as f32, end_point.y as f32);
+        let path = pb.finish();
+        dt.stroke(&path,&Source::Solid(SolidSource{r: 100, g: 255, b: 100, a: 255}), &StrokeStyle::default(),&DrawOptions::new());
     }
 }

@@ -1,3 +1,5 @@
+use std::f64::consts;
+
 use crate::{physics::Physics};
 
 use super::bubble::*;
@@ -5,7 +7,7 @@ use super::edge::*;
 // use super::vector2::*;
 
 pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
-    let time_step = 0.0005;
+    let time_step = 0.5;
     let bubble_len = bubbles.len();
     for i in 0..bubble_len {
         let a = &mut bubbles[i].a;
@@ -49,7 +51,7 @@ pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
             let m_to = (*bubble_to).get_m();
 
             let d_from_to = (*bubble_to).position.sub(&(*bubble_from).position);
-            let pull_force_factor = 1000000.0;
+            let pull_force_factor = 1.0;
             let pull_force_from_to = d_from_to.mul_s(pull_force_factor);
             edge.pull_force = pull_force_from_to.len();
             let a_from = pull_force_from_to.mul_s(1.0/m_from);
@@ -61,10 +63,11 @@ pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
 
 
     for bubble in bubbles.iter_mut() {
-        // damping
-        bubble.v = bubble.v.mul_s(0.5);
-
         bubble.v = bubble.v.add(&bubble.a.mul_s(time_step));
+
+        // damping, the higher the velocity is, the quicker it damps
+        bubble.v = bubble.v.mul_s((1.0 - (bubble.v.len() * 0.1).atan() *2.0 / std::f64::consts::PI).min(0.9));
+
         bubble.position = bubble.position.add(&bubble.v.mul_s(time_step));
     }
 

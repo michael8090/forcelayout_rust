@@ -22,6 +22,6 @@ impl Drawable for Edge {
         pb.move_to(p_from.x as f32, p_from.y as f32);
         pb.line_to(p_to.x as f32, p_to.y as f32);
         let path = pb.finish();
-        dt.stroke(&path, &Source::Solid(SolidSource{r: (self.pull_force/100000.0 * 255.0) as u8, g: 100, b: 100, a: 255}), &StrokeStyle::default(),&DrawOptions::new());
+        dt.stroke(&path, &Source::Solid(SolidSource{r: (self.pull_force * 1.0 * 255.0) as u8, g: 100, b: 100, a: 255}), &StrokeStyle::default(),&DrawOptions::new());
     }
 }
