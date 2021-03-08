@@ -8,5 +8,12 @@ edition = "2018"
 
 [dependencies]
 rand = "*"
-minifb = "*"
-raqote = "*"
+
+lyon = "0.17.5"
+env_logger = "0.7"
+log = "0.4"
+
+wgpu = "0.6.0"
+winit = "0.23"
+futures = "0.3.5"
+bytemuck = "1.2.0"

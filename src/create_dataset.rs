@@ -1,3 +1,5 @@
+use crate::mesh::Mesh;
+
 use super::bubble::*;
 use super::edge::*;
 use super::math::*;
@@ -13,10 +15,11 @@ pub fn create_bubbles(bubble_count: u64) -> Vec<Bubble> {
     let mut bubbles: Vec<Bubble> = (0..bubble_count)
         .map(|_| Bubble {
             position: get_random_vec2().mul_s(100.0),
-            size: rand::random::<f64>() * 20.0 + 5.0,
+            size: rand::random::<f32>() * 20.0 + 5.0,
             // size: 30.0,
             v: Vector2{x: 0.0, y: 0.0},
-            a: Vector2{x: 0.0, y: 0.0}
+            a: Vector2{x: 0.0, y: 0.0},
+            mesh: Mesh::default(),
         })
         .collect();
     // bubbles[0].size = 40.0;
@@ -68,7 +71,7 @@ pub fn create_edges(bubble_count: usize, group_size: usize) -> Vec<Edge> {
     // edges
 
     // let group_size = 5;
-    let group_count = ((bubble_count as f64) / (group_size as f64)).ceil() as usize;
+    let group_count = ((bubble_count as f32) / (group_size as f32)).ceil() as usize;
     for i in 0..group_count {
         let group_item_count = (bubble_count - i * group_size).min(group_size);
         for j in 1..group_item_count {
@@ -78,6 +81,7 @@ pub fn create_edges(bubble_count: usize, group_size: usize) -> Vec<Edge> {
                 from: 0 + i*group_size,
                 to: j + i*group_size,
                 pull_force: 0.0,
+                mesh: Mesh::default(),
             })
         }
     }

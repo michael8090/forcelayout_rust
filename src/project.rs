@@ -21,7 +21,7 @@ pub fn fit_into_view(v: &Vector2, rect_source: &Rect, rect_target: &Rect) -> Vec
 // be considered about how they're meant to be used
 // the same thing happens when we take care of mesh normals
 // note that I keep the len the same after the projection
-pub fn project_direction_vector(v: &Vector2, source_rect_width: f64, source_rect_height: f64, target_rect_width: f64, target_rect_height: f64) -> Vector2 {
+pub fn project_direction_vector(v: &Vector2, source_rect_width: f32, source_rect_height: f32, target_rect_width: f32, target_rect_height: f32) -> Vector2 {
     let mut scale_x = 1.0;
     if source_rect_width > 0.0 {
         scale_x = target_rect_width / source_rect_width;

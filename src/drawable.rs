@@ -1,6 +1,4 @@
-use raqote::*;
-
-use crate::math::Rect;
+use crate::{mesh::Mesh};
 pub trait Drawable {
-    fn draw(&self, dt: &mut DrawTarget, source_rect: &Rect, target_rect: &Rect);
+    fn get_mesh() -> Mesh;
 }

@@ -1,4 +1,4 @@
-use std::f64::consts;
+use std::f32::consts;
 
 use crate::{physics::Physics};
 
@@ -66,7 +66,7 @@ pub fn forcelayout(bubbles: &mut Vec<Bubble>, edges: &mut Vec<Edge>) {
         bubble.v = bubble.v.add(&bubble.a.mul_s(time_step));
 
         // damping, the higher the velocity is, the quicker it damps
-        bubble.v = bubble.v.mul_s((1.0 - (bubble.v.len() * 0.1).atan() *2.0 / std::f64::consts::PI).min(0.9));
+        bubble.v = bubble.v.mul_s((1.0 - (bubble.v.len() * 0.1).atan() *2.0 / std::f32::consts::PI).min(0.9));
 
         bubble.position = bubble.position.add(&bubble.v.mul_s(time_step));
     }

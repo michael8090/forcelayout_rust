@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub struct Vector2 {
-    pub x: f64,
-    pub y: f64,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl Vector2 {
@@ -11,13 +11,13 @@ impl Vector2 {
     pub fn clone(&self) -> Self {
         Vector2{x: self.x, y: self.y,}
     }
-    fn vector_two_operand(&self, a: &Self, f: fn (v0: f64, v1: f64) -> f64) -> Self {
+    fn vector_two_operand(&self, a: &Self, f: fn (v0: f32, v1: f32) -> f32) -> Self {
         let mut out = Self::new();
         out.x = f(self.x, a.x);
         out.y = f(self.y, a.y);
         out
     }
-    fn scala_two_operand(&self, a: f64, f: fn (v0: f64, v1: f64) -> f64) -> Self {
+    fn scala_two_operand(&self, a: f32, f: fn (v0: f32, v1: f32) -> f32) -> Self {
         let mut out = Self::new();
         out.x = f(self.x, a);
         out.y = f(self.y, a);
@@ -32,7 +32,7 @@ impl Vector2 {
     pub fn mul(&self, a: &Vector2) -> Self {
         self.vector_two_operand(a, |v0, v1| {v0 * v1})
     }
-    pub fn mul_s(&self, a: f64) -> Self {
+    pub fn mul_s(&self, a: f32) -> Self {
         self.scala_two_operand(a, |v0, v1| {v0 * v1})
     }
     // pub fn div(&mut self, a: &Vector2) -> Self {
@@ -47,11 +47,11 @@ impl Vector2 {
         self.y = source.y;
         self
     }
-    pub fn sqrt_len(&self) -> f64 {
+    pub fn sqrt_len(&self) -> f32 {
         self.x * self.x + self.y * self.y
     } 
-    pub fn len(&self) -> f64{
-        f64::sqrt(self.sqrt_len())
+    pub fn len(&self) -> f32{
+        f32::sqrt(self.sqrt_len())
     }
     pub fn norm(&self) -> Self {
         let mut out = Self::new();
@@ -65,6 +65,6 @@ impl Vector2 {
 #[derive(Debug)]
 pub struct Rect {
     pub origin: Vector2,
-    pub width: f64,
-    pub height: f64,
+    pub width: f32,
+    pub height: f32,
 }
