@@ -1,6 +1,6 @@
-use lyon::{geom::euclid::Point2D, lyon_tessellation::{BuffersBuilder, FillTessellator, StrokeOptions, StrokeTessellator}, path::Path};
+use lyon::{geom::euclid::Point2D, lyon_tessellation::{BuffersBuilder, FillTessellator, StrokeOptions, StrokeTessellator}, math::point, path::Path};
 
-use crate::{GpuVertexBuilder, drawable::Drawable, mesh::Mesh, project::fit_into_view};
+use crate::{WithId, drawable::Drawable, mesh::Mesh, project::fit_into_view};
 
 use super::math::*;
 pub struct Edge {
@@ -13,25 +13,26 @@ pub struct Edge {
 }
 
 impl  Edge {
-    pub fn generate_mesh(&mut self) {
+    pub fn generate_mesh(&mut self, id: i32) {
         // let mut fill_tess = FillTessellator::new();
         let mut stroke_tess = StrokeTessellator::new();
         let tolerance = 0.02;
 
-        let mut builder = Path::builder().with_svg();
-        // builder.add_rectangle(&Rect {
-        //     origin: Point2D::new(0.0, 0.0),
-        //     size: Size2D::new(self.size, self.size),
-        // }, Winding::Positive);
-        builder.move_to(Point2D::new(self.position_from.x, self.position_from.y));
-        builder.line_to(Point2D::new(self.position_to.x, self.position_to.y));
+        let mut builder = Path::builder();
+        builder.begin(point(self.position_from.x, self.position_from.y));
+        builder.line_to(point(self.position_to.x, self.position_to.y));
+        builder.close();
         let path = builder.build();
 
         stroke_tess.tessellate_path(
             &path,
             &StrokeOptions::tolerance(tolerance),
-            &mut BuffersBuilder::new(&mut self.mesh.geometry, GpuVertexBuilder()),
+            &mut BuffersBuilder::new(&mut self.mesh.geometry, WithId(id)),
         ).unwrap();
+
+        self.mesh.width = 2.0;
+
+        self.mesh.id = id;
 
         self.mesh.position = [0.0, 0.0];
         self.mesh.material.color = [1.0, 0.0, 0.0, 1.0];

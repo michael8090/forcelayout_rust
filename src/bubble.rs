@@ -1,6 +1,6 @@
 use lyon::{geom::{Rect, euclid::{Point2D, Size2D}}, lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, StrokeTessellator}, path::{FillRule, Path, Winding, traits::PathBuilder}};
 
-use crate::{GpuVertexBuilder, drawable::Drawable, mesh::Mesh, project::{fit_into_view, project_direction_vector}};
+use crate::{WithId, drawable::Drawable, mesh::Mesh, project::{fit_into_view, project_direction_vector}};
 
 use super::math::*;
 use super::physics::*;
@@ -13,27 +13,24 @@ pub struct Bubble {
 }
 
 impl Bubble {
-    pub fn generate_mesh(&mut self) {
+    pub fn generate_mesh(&mut self, id: i32) {
         let mut fill_tess = FillTessellator::new();
         let mut stroke_tess = StrokeTessellator::new();
         let tolerance = 0.02;
 
         let mut builder = Path::builder();
-        // builder.add_rectangle(&Rect {
-        //     origin: Point2D::new(0.0, 0.0),
-        //     size: Size2D::new(self.size, self.size),
-        // }, Winding::Positive);
-        builder.add_circle(Point2D::new(0.0, 0.0), self.size, Winding::Positive);
+        builder.add_circle(Point2D::new(0.0, 0.0), self.size * 0.1, Winding::Positive);
         let path = builder.build();
 
         fill_tess.tessellate_path(
             &path,
             &FillOptions::tolerance(tolerance).with_fill_rule(FillRule::NonZero),
-            &mut BuffersBuilder::new(&mut self.mesh.geometry, GpuVertexBuilder()),
+            &mut BuffersBuilder::new(&mut self.mesh.geometry, WithId(id)),
         ).unwrap();
 
         self.mesh.position = [self.position.x, self.position.y];
         self.mesh.material.color = [0.0, 0.0, 1.0, 1.0];
+        self.mesh.id = id;
 
     }
 

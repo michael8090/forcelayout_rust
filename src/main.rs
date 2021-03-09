@@ -20,20 +20,21 @@ use lyon::tessellation::{StrokeOptions, StrokeTessellator};
 
 use lyon::algorithms::walk;
 
+use mesh::Mesh;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
 // For create_buffer_init()
-use wgpu::util::DeviceExt;
+use wgpu::{Buffer, Queue, RenderPass, util::DeviceExt};
 
 use futures::executor::block_on;
 use std::ops::Rem;
 
 //use log;
 
-const PRIM_BUFFER_LEN: usize = 256;
+const PRIM_BUFFER_LEN: usize = 1;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -51,7 +52,7 @@ unsafe impl bytemuck::Zeroable for Globals {}
 pub struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],
-    // prim_id: i32,
+    prim_id: i32,
 }
 unsafe impl bytemuck::Pod for GpuVertex {}
 unsafe impl bytemuck::Zeroable for GpuVertex {}
@@ -121,6 +122,13 @@ fn create_multisampled_framebuffer(
         .create_view(&wgpu::TextureViewDescriptor::default())
 }
 
+fn draw_mesh<'a, 'b, 'c, 'd>(mesh: &'a Mesh, pass: &'c mut RenderPass<'a>) {
+    pass.set_index_buffer(mesh.ibo.as_ref().unwrap().slice(..));
+    pass.set_vertex_buffer(0, mesh.vbo.as_ref().unwrap().slice(..));
+
+    pass.draw_indexed(0..(mesh.geometry.indices.len() as u32), 0, 0..1)
+}
+
 fn main() {
     env_logger::init();
     println!("== wgpu example ==");
@@ -134,59 +142,7 @@ fn main() {
     // Set to 1 to disable
     let sample_count = 4;
 
-    let num_instances: u32 = 32;
-    let tolerance = 0.02;
-
-    let stroke_prim_id = 0;
-    let fill_prim_id = 1;
-    let arrows_prim_id = num_instances + 1;
-
-    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
-
     let mut fill_tess = FillTessellator::new();
-    let mut stroke_tess = StrokeTessellator::new();
-
-    // Build a Path for the rust logo.
-    let mut builder = Path::builder().with_svg();
-    // build_logo_path(&mut builder);
-    let path = builder.build();
-
-    // Build a Path for the arrow.
-    let mut builder = Path::builder();
-    builder.begin(point(-1.0, -0.3));
-    builder.line_to(point(0.0, -0.3));
-    builder.line_to(point(0.0, -1.0));
-    builder.line_to(point(1.5, 0.0));
-    builder.line_to(point(0.0, 1.0));
-    builder.line_to(point(0.0, 0.3));
-    builder.line_to(point(-1.0, 0.3));
-    builder.close();
-    let arrow_path = builder.build();
-
-    fill_tess.tessellate_path(
-        &path,
-        &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
-        &mut BuffersBuilder::new(&mut geometry, GpuVertexBuilder()),
-    ).unwrap();
-
-    let fill_range = 0..(geometry.indices.len() as u32);
-
-    stroke_tess.tessellate_path(
-        &path,
-        &StrokeOptions::tolerance(tolerance),
-        &mut BuffersBuilder::new(&mut geometry, GpuVertexBuilder()),
-    ).unwrap();
-
-    let stroke_range = fill_range.end..(geometry.indices.len() as u32);
-
-    fill_tess.tessellate_path(
-        &arrow_path,
-        &FillOptions::tolerance(tolerance),
-        &mut BuffersBuilder::new(&mut geometry, GpuVertexBuilder()),
-    ).unwrap();
-
-
-    let arrow_range = stroke_range.end..(geometry.indices.len() as u32);
 
     let mut bg_geometry: VertexBuffers<BgPoint, u16> = VertexBuffers::new();
 
@@ -195,42 +151,6 @@ fn main() {
         &FillOptions::DEFAULT,
         &mut BuffersBuilder::new(&mut bg_geometry, Custom),
     ).unwrap();
-
-    // let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
-    // for _ in 0..PRIM_BUFFER_LEN {
-    //     cpu_primitives.push(Primitive {
-    //         color: [1.0, 0.0, 0.0, 1.0],
-    //         z_index: 0,
-    //         width: 0.0,
-    //         translate: [0.0, 0.0],
-    //         angle: 0.0,
-    //         .. Primitive::DEFAULT
-    //     });
-    // }
-
-    // // Stroke primitive
-    // cpu_primitives[stroke_prim_id] = Primitive {
-    //     color: [0.0, 0.0, 0.0, 1.0],
-    //     z_index: num_instances as i32 + 2,
-    //     width: 1.0,
-    //     .. Primitive::DEFAULT
-    // };
-    // // Main fill primitive
-    // cpu_primitives[fill_prim_id] = Primitive {
-    //     color: [1.0, 1.0, 1.0, 1.0],
-    //     z_index: num_instances as i32 + 1,
-    //     .. Primitive::DEFAULT
-    // };
-    // // Instance primitives
-    // for idx in (fill_prim_id + 1)..(fill_prim_id + num_instances as usize) {
-    //     cpu_primitives[idx].z_index = (idx as u32 + 1) as i32;
-    //     cpu_primitives[idx].color = [
-    //         (0.1 * idx as f32).rem(1.0),
-    //         (0.5 * idx as f32).rem(1.0),
-    //         (0.9 * idx as f32).rem(1.0),
-    //         1.0,
-    //     ];
-    // }
 
     let mut scene = SceneParams {
         target_zoom: 5.0,
@@ -273,13 +193,15 @@ fn main() {
     .unwrap();
 
     // init the game
-    let bubble_count = 50;
-    let group_size = 3;
+    let bubble_count = 2;
+    let group_size = 2;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
+    let mut id = 0;
     for bubble in bubbles.iter_mut() {
-        bubble.generate_mesh();
+        bubble.generate_mesh(id);
+        id += 1;
         bubble.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&bubble.mesh.geometry.vertices),
@@ -293,7 +215,8 @@ fn main() {
         }));
     }
     for edge in edges.iter_mut() {
-        edge.generate_mesh();
+        edge.generate_mesh(id);
+        id += 1;
         edge.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&edge.mesh.geometry.vertices),
@@ -308,18 +231,6 @@ fn main() {
     }
     // end init
 
-    // let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-    //     label: None,
-    //     contents: bytemuck::cast_slice(&geometry.vertices),
-    //     usage: wgpu::BufferUsage::VERTEX,
-    // });
-
-    // let ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-    //     label: None,
-    //     contents: bytemuck::cast_slice(&geometry.indices),
-    //     usage: wgpu::BufferUsage::INDEX,
-    // });
-
     let bg_vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&bg_geometry.vertices),
@@ -332,7 +243,7 @@ fn main() {
         usage: wgpu::BufferUsage::INDEX,
     });
 
-    let prim_buffer_byte_size = (1 * std::mem::size_of::<Primitive>()) as u64;
+    let prim_buffer_byte_size = ((id + 1) as usize * std::mem::size_of::<Primitive>()) as u64;
     let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u64;
 
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
@@ -538,39 +449,28 @@ fn main() {
         }
 
         // do forcelayout
-        forcelayout(&mut bubbles, &mut edges);
+        // forcelayout(&mut bubbles, &mut edges);
+        let mut primitives = vec![];
         for bubble in bubbles.iter_mut() {
             bubble.update_mesh();
+            primitives.push(bubble.mesh.get_uniform_buffer());
         }
 
         for edge in edges.iter_mut() {
-            edge.generate_mesh();
-            edge.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&edge.mesh.geometry.vertices),
-                usage: wgpu::BufferUsage::VERTEX,
-            }));
+            // edge.generate_mesh(edge.mesh.id);
+            // edge.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            //     label: None,
+            //     contents: bytemuck::cast_slice(&edge.mesh.geometry.vertices),
+            //     usage: wgpu::BufferUsage::VERTEX,
+            // }));
         
-            edge.mesh.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&edge.mesh.geometry.indices),
-                usage: wgpu::BufferUsage::INDEX,
-            }));
+            // edge.mesh.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            //     label: None,
+            //     contents: bytemuck::cast_slice(&edge.mesh.geometry.indices),
+            //     usage: wgpu::BufferUsage::INDEX,
+            // }));
+            primitives.push(edge.mesh.get_uniform_buffer());
         }
-    
-        // let b0 = &bubbles[0];
-        // let mut min_x = b0.position.x;
-        // let mut max_x = min_x;
-        // let mut min_y = b0.position.y;
-        // let mut max_y = min_y;
-
-        // for bubble in bubbles.iter() {
-        //     let p = & bubble.position;
-        //     min_x = min_x.min(p.x);
-        //     max_x = max_x.max(p.x);
-        //     min_y = min_y.min(p.y);
-        //     max_y = max_y.max(p.y);
-        // }
         // end do forcelayout
 
         if scene.size_changed {
@@ -616,53 +516,6 @@ fn main() {
             }
         };
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Encoder"),
-        });
-
-        // cpu_primitives[stroke_prim_id as usize].width = scene.stroke_width;
-        // cpu_primitives[stroke_prim_id as usize].color = [
-        //     (frame_count * 0.008 - 1.6).sin() * 0.1 + 0.1,
-        //     (frame_count * 0.005 - 1.6).sin() * 0.1 + 0.1,
-        //     (frame_count * 0.01 - 1.6).sin() * 0.1 + 0.1,
-        //     1.0,
-        // ];
-
-        // for idx in 2..(num_instances + 1) {
-        //     cpu_primitives[idx as usize].translate = [
-        //         (frame_count * 0.0005 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
-        //         (frame_count * 0.001 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
-        //     ];
-        // }
-
-        // let mut arrow_count = 0;
-        // let offset = (frame_count as f32 * 0.1).rem(5.0);
-        // walk::walk_along_path(
-        //     path.iter().flattened(0.01),
-        //     offset,
-        //     &mut walk::RepeatedPattern {
-        //         callback: |pos: Point, tangent: Vector, _| {
-        //             if arrow_count + num_instances as usize + 1 >= PRIM_BUFFER_LEN {
-        //                 // Don't want to overflow the primitive buffer,
-        //                 // just skip the remaining arrows.
-        //                 return false;
-        //             }
-        //             cpu_primitives[arrows_prim_id as usize + arrow_count] = Primitive {
-        //                 color: [0.7, 0.9, 0.8, 1.0],
-        //                 translate: (pos * 2.3 - vector(80.0, 80.0)).to_array(),
-        //                 angle: tangent.angle_from_x_axis().get(),
-        //                 scale: 2.0,
-        //                 z_index: arrows_prim_id as i32,
-        //                 .. Primitive::DEFAULT
-        //             };
-        //             arrow_count += 1;
-        //             true
-        //         },
-        //         intervals: &[5.0, 5.0, 5.0],
-        //         index: 0,
-        //     },
-        // );
-
         queue.write_buffer(
             &globals_ubo,
             0,
@@ -676,7 +529,12 @@ fn main() {
             }]),
         );
 
-        // queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&cpu_primitives));
+        queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&primitives));
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Encoder"),
+        });
+
 
         {
             // A resolve target is only supported if the attachment actually uses anti-aliasing
@@ -716,45 +574,19 @@ fn main() {
                 }),
             });
 
-            // draw the geometries
             pass.set_pipeline(&render_pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
 
+            // todo: how to loop over the stereo array?
+            
             for bubble in bubbles.iter() {
-                let mesh = &bubble.mesh;
-                queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&[mesh.get_uniform_buffer()]));
-                if let Some(ibo) = &mesh.ibo { 
-                    pass.set_index_buffer(ibo.slice(..));
-                }
-
-                if let Some(vbo) = &mesh.vbo {
-                    pass.set_vertex_buffer(0, vbo.slice(..));
-                }
-                
-                pass.draw_indexed(0..(mesh.geometry.indices.len() as u32), 0, 0..1)
+                draw_mesh(& bubble.mesh, &mut pass);
             }
-
             for edge in edges.iter() {
-                let mesh = &edge.mesh;
-                queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&[mesh.get_uniform_buffer()]));
-                if let Some(ibo) = &mesh.ibo { 
-                    pass.set_index_buffer(ibo.slice(..));
-                }
-
-                if let Some(vbo) = &mesh.vbo {
-                    pass.set_vertex_buffer(0, vbo.slice(..));
-                }
-                
-                pass.draw_indexed(0..(mesh.geometry.indices.len() as u32), 0, 0..1)
+                draw_mesh(& edge.mesh, &mut pass);
             }
-            // pass.set_index_buffer(ibo.slice(..));
-            // pass.set_vertex_buffer(0, vbo.slice(..));
 
-            // pass.draw_indexed(fill_range.clone(), 0, 0..(num_instances as u32));
-            // pass.draw_indexed(stroke_range.clone(), 0, 0..1);
-            // pass.draw_indexed(arrow_range.clone(), 0, 0..(arrow_count as u32));
-
-            if scene.draw_background {
+            if scene.draw_background {    
                 pass.set_pipeline(&bg_pipeline);
                 pass.set_bind_group(0, &bind_group, &[]);
                 pass.set_index_buffer(bg_ibo.slice(..));
@@ -772,24 +604,24 @@ fn main() {
 
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
-pub struct GpuVertexBuilder();
+pub struct WithId(pub i32);
 
-impl FillVertexConstructor<GpuVertex> for GpuVertexBuilder {
+impl FillVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
         GpuVertex {
             position: vertex.position().to_array(),
             normal: [0.0, 0.0],
-            // prim_id: 0,
+            prim_id: self.0,
         }
     }
 }
 
-impl StrokeVertexConstructor<GpuVertex> for GpuVertexBuilder {
+impl StrokeVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
         GpuVertex {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),
-            // prim_id: 0,
+            prim_id: self.0,
         }
     }
 }

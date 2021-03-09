@@ -13,11 +13,13 @@ pub struct Material {
 
 
 pub struct Mesh {
+    pub id: i32,
     pub geometry:  VertexBuffers<GpuVertex, u16>,
     pub material: Material,
     pub position: [f32; 2],
     pub rotation: f32,
     pub scale: [f32; 2],
+    pub width: f32,
 
     // for rendering state
     pub ibo: Option<Buffer>,
@@ -31,6 +33,7 @@ impl Mesh {
             // todo: improve it please...
             translate: [self.position[0], self.position[1]],
             z_index: 10,
+            width: 1.0,
             ..Primitive::DEFAULT
         }
     } 
@@ -39,6 +42,7 @@ impl Mesh {
 impl Default for Mesh {
     fn default() -> Self {
         Mesh {
+            id: 0,
             geometry: VertexBuffers {
                 vertices: vec![],
                 indices: vec![],
@@ -46,9 +50,10 @@ impl Default for Mesh {
             material: Material::default(),
             position: [0.0, 0.0],
             rotation: 0.0,
-            scale: [0.0, 0.0],
+            scale: [1.0, 1.0],
             ibo: None,
             vbo: None,
+            width: 1.0,
         }
         
     }
