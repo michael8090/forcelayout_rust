@@ -40,8 +40,8 @@ void main() {
         sin(prim.angle), cos(prim.angle)
     );
 
-    vec2 local_pos = (a_position * prim.scale + a_normal * prim.width) * rotation;
-    vec2 world_pos = local_pos - u_scroll_offset + prim.translate;
+    vec2 local_pos = ((a_position + prim.translate) * prim.scale + a_normal * prim.width) * rotation;
+    vec2 world_pos = local_pos - u_scroll_offset;
     vec2 transformed_pos = world_pos * u_zoom / (vec2(0.5, 0.5) * u_resolution) * invert_y;
 
     float z = float(prim.z_index) / 4096.0;
