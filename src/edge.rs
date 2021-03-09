@@ -1,4 +1,4 @@
-use lyon::{geom::euclid::Point2D, lyon_tessellation::{BuffersBuilder, FillTessellator, StrokeOptions, StrokeTessellator}, math::point, path::Path};
+use lyon::{geom::{euclid::Point2D, point}, lyon_tessellation::{BuffersBuilder, FillTessellator, StrokeOptions, StrokeTessellator}, math::{Point, Vector}, path::Path};
 
 use crate::{WithId, drawable::Drawable, mesh::Mesh, project::fit_into_view};
 
@@ -19,8 +19,8 @@ impl  Edge {
         let tolerance = 0.02;
 
         let mut builder = Path::builder();
-        builder.begin(point(self.position_from.x, self.position_from.y));
-        builder.line_to(point(self.position_to.x, self.position_to.y));
+        builder.begin(point(0.0, 0.0));
+        builder.line_to(point(1.0, 0.0));
         builder.close();
         let path = builder.build();
 
@@ -30,17 +30,21 @@ impl  Edge {
             &mut BuffersBuilder::new(&mut self.mesh.geometry, WithId(id)),
         ).unwrap();
 
-        self.mesh.width = 2.0;
+        self.mesh.width = 0.1;
 
         self.mesh.id = id;
 
-        self.mesh.position = [0.0, 0.0];
-        self.mesh.material.color = [1.0, 0.0, 0.0, 1.0];
+        self.update_mesh();
 
     }
     pub fn update_mesh(&mut self) {
-        // self.mesh.position = [self.position.x, self.position.y];
-        self.mesh.material.color = [1.0, 0.0, 0.0, 1.0];
+        let d = self.position_to.sub(&self.position_from);
+        let l = d.len();
+        let p = Vector::new(d.x, d.y);
+        self.mesh.rotation = p.angle_from_x_axis().get();
+        self.mesh.position = [self.position_from.x, self.position_from.y];
+        self.mesh.scale = l;
+        self.mesh.material.color = [1.0, 0.0, 0.0, 0.1];
     }
 }
 

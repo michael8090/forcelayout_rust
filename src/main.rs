@@ -193,8 +193,9 @@ fn main() {
     .unwrap();
 
     // init the game
-    let bubble_count = 2;
-    let group_size = 2;
+    println!("{}", device.limits().max_uniform_buffer_binding_size);
+    let bubble_count = 150;
+    let group_size = bubble_count as usize;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
@@ -449,7 +450,7 @@ fn main() {
         }
 
         // do forcelayout
-        // forcelayout(&mut bubbles, &mut edges);
+        forcelayout(&mut bubbles, &mut edges);
         let mut primitives = vec![];
         for bubble in bubbles.iter_mut() {
             bubble.update_mesh();
@@ -457,18 +458,20 @@ fn main() {
         }
 
         for edge in edges.iter_mut() {
-            // edge.generate_mesh(edge.mesh.id);
-            // edge.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            //     label: None,
-            //     contents: bytemuck::cast_slice(&edge.mesh.geometry.vertices),
-            //     usage: wgpu::BufferUsage::VERTEX,
-            // }));
+            edge.generate_mesh(edge.mesh.id);
+            drop(edge.mesh.vbo.as_ref().unwrap());
+            edge.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&edge.mesh.geometry.vertices),
+                usage: wgpu::BufferUsage::VERTEX,
+            }));
         
-            // edge.mesh.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            //     label: None,
-            //     contents: bytemuck::cast_slice(&edge.mesh.geometry.indices),
-            //     usage: wgpu::BufferUsage::INDEX,
-            // }));
+            drop(edge.mesh.ibo.as_ref().unwrap());
+            edge.mesh.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&edge.mesh.geometry.indices),
+                usage: wgpu::BufferUsage::INDEX,
+            }));
             primitives.push(edge.mesh.get_uniform_buffer());
         }
         // end do forcelayout
