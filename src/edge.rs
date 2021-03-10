@@ -1,6 +1,6 @@
 use lyon::{geom::{euclid::Point2D, point}, lyon_tessellation::{BuffersBuilder, FillTessellator, StrokeOptions, StrokeTessellator}, math::{Point, Vector}, path::Path};
 
-use crate::{WithId, drawable::Drawable, mesh::Mesh, project::fit_into_view, shape_builder::build_stroke};
+use crate::{WithId, drawable::Drawable, id_generator::IdGenerator, mesh::Mesh, project::fit_into_view, shape_builder::build_stroke};
 
 use super::math::*;
 pub struct Edge {
@@ -13,15 +13,14 @@ pub struct Edge {
 }
 
 impl  Edge {
-    pub fn generate_mesh(&mut self, id: i32) -> i32 {
-        self.mesh = build_stroke(id, |builder| {
+    pub fn generate_mesh(&mut self, id: &mut IdGenerator) {
+        self.mesh = build_stroke(id.get(), |builder| {
             builder.begin(point(0.0, 0.0));
             builder.line_to(point(1.0, 0.0));
             builder.close();
         });
         self.mesh.width = 0.2;
         self.update_mesh();
-        id + 1
     }
     pub fn update_mesh(&mut self) {
         let d = self.position_to.sub(&self.position_from);
@@ -30,6 +29,6 @@ impl  Edge {
         self.mesh.rotation = p.angle_from_x_axis().get();
         self.mesh.position = [self.position_from.x, self.position_from.y];
         self.mesh.scale = l;
-        self.mesh.material.color = [1.0, 0.0, 0.0, 0.1];
+        self.mesh.material.color = [0.5, 0.7, 0.7, 0.5];
     }
 }

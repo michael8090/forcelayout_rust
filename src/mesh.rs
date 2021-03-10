@@ -29,8 +29,8 @@ pub struct Mesh {
 impl Mesh {
     pub fn get_uniform_buffer(&self) -> Primitive {
         Primitive {
-            color: self.material.color,
             // todo: improve it please...
+            color: self.material.color.clone(),
             translate: [self.position[0], self.position[1]],
             z_index: 10,
             width: self.width,

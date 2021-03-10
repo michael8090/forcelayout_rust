@@ -8,6 +8,7 @@ mod drawable;
 mod project;
 mod mesh;
 mod shape_builder;
+mod id_generator;
 
 use forcelayout::*;
 
@@ -28,10 +29,10 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
 // For create_buffer_init()
-use wgpu::{Buffer, Queue, RenderPass, util::DeviceExt};
+use wgpu::{BlendFactor, BlendOperation, BlendState, Buffer, Queue, RenderPass, util::DeviceExt};
 
 use futures::executor::block_on;
-use std::{f64::consts, num::NonZeroI64, ops::Rem};
+use std::{borrow::Borrow, f64::consts, num::NonZeroI64, ops::Rem};
 
 //use log;
 
@@ -195,20 +196,20 @@ fn main() {
 
     // init the game
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
+    let mut id = id_generator::IdGenerator::new();
     let bubble_count = 50;
     let group_size = bubble_count as usize;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
-    let mut id = 0;
     for bubble in bubbles.iter_mut() {
-        id = bubble.generate_mesh(id);
+        bubble.generate_mesh(&mut id);
         for mesh in bubble.meshes.iter_mut() {
             mesh.create_buffer_and_upload(&device);
         }
     }
     for edge in edges.iter_mut() {
-        id = edge.generate_mesh(id);
+        edge.generate_mesh(&mut id);
         edge.mesh.create_buffer_and_upload(&device);
     }
     // end init
@@ -225,7 +226,7 @@ fn main() {
         usage: wgpu::BufferUsage::INDEX,
     });
 
-    let prim_buffer_byte_size = ((id + 1) as usize * std::mem::size_of::<Primitive>()) as u64;
+    let prim_buffer_byte_size = (id.count() as usize * std::mem::size_of::<Primitive>()) as u64;
     let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u64;
 
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
@@ -324,6 +325,12 @@ fn main() {
         },
     });
 
+    // let blend_state = &BlendState {
+    //     src_factor: BlendFactor::SrcAlpha,
+    //     dst_factor: BlendFactor::OneMinusSrcAlpha,
+    //     operation: BlendOperation::Add,
+    // };
+
     let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
@@ -356,8 +363,18 @@ fn main() {
             entry_point: "main",
             targets: &[wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
-                color_blend: wgpu::BlendState::REPLACE,
-                alpha_blend: wgpu::BlendState::REPLACE,
+                // color_blend: blend_state,
+                // alpha_blend: blend_state,
+                color_blend: BlendState {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha_blend: BlendState {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
                 write_mask: wgpu::ColorWrite::ALL,
             }]
         }),
