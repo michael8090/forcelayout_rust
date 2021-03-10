@@ -1,6 +1,6 @@
 #version 450
 
-#define PRIM_BUFFER_LEN 1000
+#define PRIM_BUFFER_LEN 1 // it's funny that the len doesn't matter that much(but it cannot be greater than min_binding_size)
 
 layout(std140, binding = 0)
 uniform Globals {

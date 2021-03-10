@@ -7,6 +7,7 @@ mod physics;
 mod drawable;
 mod project;
 mod mesh;
+mod shape_builder;
 
 use forcelayout::*;
 
@@ -33,8 +34,6 @@ use futures::executor::block_on;
 use std::{f64::consts, num::NonZeroI64, ops::Rem};
 
 //use log;
-
-const PRIM_BUFFER_LEN: usize = 1;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -195,42 +194,22 @@ fn main() {
     .unwrap();
 
     // init the game
-    println!("{}", device.limits().max_uniform_buffer_binding_size);
-    let bubble_count = 150;
+    // println!("{}", device.limits().max_uniform_buffer_binding_size);
+    let bubble_count = 50;
     let group_size = bubble_count as usize;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
     let mut id = 0;
     for bubble in bubbles.iter_mut() {
-        bubble.generate_mesh(id);
-        id += 1;
-        bubble.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&bubble.mesh.geometry.vertices),
-            usage: wgpu::BufferUsage::VERTEX,
-        }));
-    
-        bubble.mesh.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&bubble.mesh.geometry.indices),
-            usage: wgpu::BufferUsage::INDEX,
-        }));
+        id = bubble.generate_mesh(id);
+        for mesh in bubble.meshes.iter_mut() {
+            mesh.create_buffer_and_upload(&device);
+        }
     }
     for edge in edges.iter_mut() {
-        edge.generate_mesh(id);
-        id += 1;
-        edge.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&edge.mesh.geometry.vertices),
-            usage: wgpu::BufferUsage::VERTEX,
-        }));
-    
-        edge.mesh.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&edge.mesh.geometry.indices),
-            usage: wgpu::BufferUsage::INDEX,
-        }));
+        id = edge.generate_mesh(id);
+        edge.mesh.create_buffer_and_upload(&device);
     }
     // end init
 
@@ -307,7 +286,7 @@ fn main() {
                 resource: wgpu::BindingResource::Buffer { 
                     buffer: &globals_ubo,
                     offset: 0,
-                    size: std::num::NonZeroU64::new(globals_buffer_byte_size as u64)
+                    size: None
                 },
             },
             wgpu::BindGroupEntry {
@@ -315,7 +294,7 @@ fn main() {
                 resource: wgpu::BindingResource::Buffer { 
                     buffer: &prims_ubo,
                     offset: 0,
-                    size: std::num::NonZeroU64::new(prim_buffer_byte_size as u64)
+                    size: None
                 },
             },
         ],
@@ -333,9 +312,9 @@ fn main() {
         depth_compare: wgpu::CompareFunction::Greater,
         clamp_depth: false,
         bias: wgpu::DepthBiasState {
-            clamp: 10.0,
-            constant: 1,
-            slope_scale: 1.0,
+            clamp: 0.0,
+            constant: 0,
+            slope_scale: 0.0,
         },
         stencil: wgpu::StencilState {
             front: wgpu::StencilFaceState::IGNORE,
@@ -384,7 +363,6 @@ fn main() {
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
-            // polygon_mode: wgpu::PolygonMode::Fill,
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: wgpu::CullMode::None,
             ..Default::default()
@@ -472,24 +450,13 @@ fn main() {
         let mut primitives = vec![];
         for bubble in bubbles.iter_mut() {
             bubble.update_mesh();
-            primitives.push(bubble.mesh.get_uniform_buffer());
+            for mesh in bubble.meshes.iter() {
+                primitives.push(mesh.get_uniform_buffer());
+            }
         }
 
         for edge in edges.iter_mut() {
-            edge.generate_mesh(edge.mesh.id);
-            drop(edge.mesh.vbo.as_ref().unwrap());
-            edge.mesh.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&edge.mesh.geometry.vertices),
-                usage: wgpu::BufferUsage::VERTEX,
-            }));
-        
-            drop(edge.mesh.ibo.as_ref().unwrap());
-            edge.mesh.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&edge.mesh.geometry.indices),
-                usage: wgpu::BufferUsage::INDEX,
-            }));
+            edge.update_mesh();
             primitives.push(edge.mesh.get_uniform_buffer());
         }
         // end do forcelayout
@@ -602,7 +569,9 @@ fn main() {
             // todo: how to loop over the stereo array?
             
             for bubble in bubbles.iter() {
-                draw_mesh(& bubble.mesh, &mut pass);
+                for mesh in bubble.meshes.iter() {
+                    draw_mesh(& mesh, &mut pass);
+                }
             }
             for edge in edges.iter() {
                 draw_mesh(& edge.mesh, &mut pass);

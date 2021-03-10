@@ -1,6 +1,6 @@
 use bytemuck::cast_slice;
 use lyon::lyon_tessellation::VertexBuffers;
-use wgpu::Buffer;
+use wgpu::{Buffer, Device, util::DeviceExt};
 
 use crate::{GpuVertex, Primitive};
 
@@ -39,6 +39,19 @@ impl Mesh {
             ..Primitive::DEFAULT
         }
     } 
+    pub fn create_buffer_and_upload(&mut self, device: &Device) {
+        self.vbo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&self.geometry.vertices),
+            usage: wgpu::BufferUsage::VERTEX,
+        }));
+    
+        self.ibo = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&self.geometry.indices),
+            usage: wgpu::BufferUsage::INDEX,
+        }));
+    }
 }
 
 impl Default for Mesh {
