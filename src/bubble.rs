@@ -54,7 +54,7 @@ impl Bubble {
         let v_len = (v.len() + 1.0).log10() * 30.0;
         bubble_v_mesh.scale = v_len;
 
-        bubble_v_mesh.material.color = [0.8, 0.8, 0.8, 1.0];
+        bubble_v_mesh.material.color = [1.0, 0.8, 0.2, 0.2];
         bubble_v_mesh.width = 0.2;
     }
 }
