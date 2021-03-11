@@ -33,7 +33,7 @@ use winit::window::Window;
 use wgpu::{BlendFactor, BlendOperation, BlendState, Buffer, Queue, RenderPass, util::DeviceExt};
 
 use futures::executor::block_on;
-use std::{borrow::Borrow, f64::consts, num::NonZeroI64, ops::Rem};
+use std::{borrow::Borrow, f64::consts, num::NonZeroI64, ops::{Range, Rem}, usize};
 
 //use log;
 
@@ -123,11 +123,11 @@ fn create_multisampled_framebuffer(
         .create_view(&wgpu::TextureViewDescriptor::default())
 }
 
-fn draw_mesh<'a, 'b, 'c, 'd>(mesh: &'a Mesh, pass: &'c mut RenderPass<'a>) {
+fn draw_mesh<'a, 'b, 'c, 'd>(mesh: &'a Mesh, pass: &'c mut RenderPass<'a>, instance_range: Range<u32>) {
     pass.set_index_buffer(mesh.ibo.as_ref().unwrap().slice(..), wgpu::IndexFormat::Uint16);
     pass.set_vertex_buffer(0, mesh.vbo.as_ref().unwrap().slice(..));
 
-    pass.draw_indexed(0..(mesh.geometry.indices.len() as u32), 0, 0..1)
+    pass.draw_indexed(0..(mesh.geometry.indices.len() as u32), 0, instance_range)
 }
 
 fn main() {
@@ -199,7 +199,7 @@ fn main() {
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
     let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
-    let bubble_count = 50;
+    let bubble_count = 80;
     let group_size = bubble_count as usize;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
@@ -210,10 +210,13 @@ fn main() {
             mesh.create_buffer_and_upload(&device);
         }
     }
+    // let bubble_mesh_range = 0..id.count() as u32;
+
     for edge in edges.iter_mut() {
         edge.generate_mesh(&mut id, &mut shape_generator);
         edge.mesh.create_buffer_and_upload(&device);
     }
+    // let edge_mesh_range = bubble_mesh_range.end..id.count() as u32;
     // end init
 
     let bg_vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -452,6 +455,10 @@ fn main() {
     let mut depth_texture_view = None;
 
     let mut frame_count: f32 = 0.0;
+    let mut primitives: Vec<Primitive> = Vec::with_capacity(id.count() as usize);
+    for _ in 0..id.count() {
+        primitives.push(Primitive::DEFAULT.clone());
+    }
     event_loop.run(move |event, _, control_flow| {
         if update_inputs(event, control_flow, &mut scene) {
             // keep polling inputs.
@@ -460,17 +467,23 @@ fn main() {
 
         // do forcelayout
         forcelayout(&mut bubbles, &mut edges);
-        let mut primitives = vec![];
         for bubble in bubbles.iter_mut() {
             bubble.update_mesh();
-            for mesh in bubble.meshes.iter() {
-                primitives.push(mesh.get_uniform_buffer());
-            }
         }
+        let l = bubbles.len();
+        let ml = bubbles[0].meshes.len();
+        let mut bubble_ranges = vec![];
+        for i in 0.. ml {
+            bubble_ranges.push((i*l) as u32..(i*l+l) as u32);
+            for j in 0..l {
+                primitives[j + i * l] = bubbles[j].meshes[i].get_uniform_buffer();
+            }
+        } 
 
+        let edge_range = (l*ml) as u32 .. id.count() as u32;
         for edge in edges.iter_mut() {
             edge.update_mesh();
-            primitives.push(edge.mesh.get_uniform_buffer());
+            primitives[edge.mesh.id as usize] = edge.mesh.get_uniform_buffer();
         }
         // end do forcelayout
 
@@ -580,15 +593,23 @@ fn main() {
             pass.set_bind_group(0, &bind_group, &[]);
 
             // todo: how to loop over the stereo array?
+
+            let bubble_meshes = &bubbles[0].meshes;
+            for (mesh, range) in bubble_meshes.iter().zip(bubble_ranges) {
+                draw_mesh(& mesh, &mut pass, range);
+            }
+
+            let edge_mesh = &edges[0].mesh;
+            draw_mesh(& edge_mesh, &mut pass, edge_range);
             
-            for bubble in bubbles.iter() {
-                for mesh in bubble.meshes.iter() {
-                    draw_mesh(& mesh, &mut pass);
-                }
-            }
-            for edge in edges.iter() {
-                draw_mesh(& edge.mesh, &mut pass);
-            }
+            // for bubble in bubbles.iter() {
+            //     for mesh in bubble.meshes.iter() {
+            //         draw_mesh(& mesh, &mut pass, bubbles.len() as i32);
+            //     }
+            // }
+            // for edge in edges.iter() {
+            //     draw_mesh(& edge.mesh, &mut pass);
+            // }
 
             if scene.draw_background {    
                 pass.set_pipeline(&bg_pipeline);

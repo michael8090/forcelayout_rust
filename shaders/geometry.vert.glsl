@@ -30,7 +30,7 @@ layout(location = 2) in int a_prim_id;
 layout(location = 0) out vec4 v_color;
 
 void main() {
-    int id = a_prim_id + gl_InstanceIndex;
+    int id = gl_InstanceIndex;
     Primitive prim = primitives[id];
 
     vec2 invert_y = vec2(1.0, -1.0);

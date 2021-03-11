@@ -14,14 +14,12 @@ pub struct Bubble {
 
 impl Bubble {
     pub fn generate_mesh(&mut self, id: &mut IdGenerator, builder: &mut ShapeBuilder) {
-        let view_scale_factor = 0.1;
-
         let bubble_mesh = builder.build_fill(id.get(), |builder| {
-            builder.add_circle(Point2D::new(0.0, 0.0), self.size * 0.9 * view_scale_factor, Winding::Positive);
+            builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
         });
 
         let mut bubble_edge_mesh = builder.build_stroke(id.get(), |builder| {
-            builder.add_circle(Point2D::new(0.0, 0.0), self.size * 0.95 * view_scale_factor, Winding::Positive);
+            builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
         });
 
         bubble_edge_mesh.width = 0.1;
@@ -44,8 +42,13 @@ impl Bubble {
         for mesh in self.meshes.iter_mut() {
             mesh.position = [self.position.x, self.position.y];
         }
+        let view_scale_factor = 0.1;
         let bubble_mesh = &mut self.meshes[0];
         bubble_mesh.material.color = [self.a.len() * 5.0, 0.5, 0.5, 1.0];
+        bubble_mesh.scale = self.size * 0.9 * view_scale_factor;
+
+        let bubble_edge_mesh = &mut self.meshes[1];
+        bubble_edge_mesh.scale = self.size * 0.95 * view_scale_factor;
 
         let bubble_v_mesh = &mut self.meshes[2];
         let v = &self.v;
