@@ -53,7 +53,7 @@ unsafe impl bytemuck::Zeroable for Globals {}
 pub struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],
-    prim_id: i32,
+    // prim_id: i32,
 }
 unsafe impl bytemuck::Pod for GpuVertex {}
 unsafe impl bytemuck::Zeroable for GpuVertex {}
@@ -636,7 +636,7 @@ impl FillVertexConstructor<GpuVertex> for WithId {
         GpuVertex {
             position: vertex.position().to_array(),
             normal: [0.0, 0.0],
-            prim_id: self.0,
+            // prim_id: self.0,
         }
     }
 }
@@ -646,7 +646,7 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
         GpuVertex {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),
-            prim_id: self.0,
+            // prim_id: self.0,
         }
     }
 }
