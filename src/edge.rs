@@ -19,7 +19,6 @@ impl  Edge {
             builder.line_to(point(1.0, 0.0));
             builder.close();
         });
-        self.mesh.width = 0.2;
         self.update_mesh();
     }
     pub fn update_mesh(&mut self) {
@@ -30,5 +29,6 @@ impl  Edge {
         self.mesh.position = [self.position_from.x, self.position_from.y];
         self.mesh.scale = l;
         self.mesh.material.color = [0.5, 0.7, 0.7, 0.5];
+        self.mesh.width = 0.2;
     }
 }

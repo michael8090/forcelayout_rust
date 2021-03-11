@@ -25,7 +25,7 @@ uniform u_primitives { Primitive primitives[PRIM_BUFFER_LEN]; };
 
 layout(location = 0) in vec2 a_position;
 layout(location = 1) in vec2 a_normal;
-layout(location = 2) in int a_prim_id;
+// layout(location = 2) in int a_prim_id;
 
 layout(location = 0) out vec4 v_color;
 

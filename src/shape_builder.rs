@@ -33,7 +33,7 @@ impl ShapeBuilder {
             .tessellate_path(
                 &path,
                 &FillOptions::tolerance(self.tolerance).with_fill_rule(FillRule::NonZero),
-                &mut BuffersBuilder::new(&mut mesh.geometry, WithId(id)),
+                &mut BuffersBuilder::new(&mut mesh.geometry, WithId()),
             )
             .unwrap();
 
@@ -53,7 +53,7 @@ impl ShapeBuilder {
             .tessellate_path(
                 &path,
                 &StrokeOptions::tolerance(self.tolerance),
-                &mut BuffersBuilder::new(&mut mesh.geometry, WithId(id)),
+                &mut BuffersBuilder::new(&mut mesh.geometry, WithId()),
             )
             .unwrap();
         mesh.id = id;

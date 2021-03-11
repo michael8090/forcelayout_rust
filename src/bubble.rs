@@ -9,7 +9,7 @@ pub struct Bubble {
     pub size: f32,
     pub v: Vector2,
     pub a: Vector2,
-    pub meshes: Vec<Mesh>,
+    pub meshes: [Mesh; 3],
 }
 
 impl Bubble {
@@ -18,23 +18,17 @@ impl Bubble {
             builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
         });
 
-        let mut bubble_edge_mesh = builder.build_stroke(id.get(), |builder| {
+        let bubble_edge_mesh = builder.build_stroke(id.get(), |builder| {
             builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
         });
 
-        bubble_edge_mesh.width = 0.1;
-
-        bubble_edge_mesh.material.color = [0.9, 0.5, 0.5, 1.0];
-
-        let mut bubble_v_mesh = builder.build_stroke(id.get(), |builder| {
+        let bubble_v_mesh = builder.build_stroke(id.get(), |builder| {
             builder.begin(point(0.0, 0.0));
             builder.line_to(point(1.0, 0.0));
             builder.close();
         });
-        bubble_v_mesh.material.color = [0.8, 0.8, 0.8, 1.0];
-        bubble_v_mesh.width = 0.2;
         
-        self.meshes = vec![bubble_mesh, bubble_edge_mesh, bubble_v_mesh];
+        self.meshes = [bubble_mesh, bubble_edge_mesh, bubble_v_mesh];
         self.update_mesh();
     }
 
@@ -49,6 +43,9 @@ impl Bubble {
 
         let bubble_edge_mesh = &mut self.meshes[1];
         bubble_edge_mesh.scale = self.size * 0.95 * view_scale_factor;
+        
+        bubble_edge_mesh.width = 0.1;
+        bubble_edge_mesh.material.color = [0.9, 0.5, 0.5, 1.0];
 
         let bubble_v_mesh = &mut self.meshes[2];
         let v = &self.v;
@@ -56,6 +53,9 @@ impl Bubble {
         bubble_v_mesh.rotation = p.angle_from_x_axis().get();
         let v_len = (v.len() + 1.0).log10() * 30.0;
         bubble_v_mesh.scale = v_len;
+
+        bubble_v_mesh.material.color = [0.8, 0.8, 0.8, 1.0];
+        bubble_v_mesh.width = 0.2;
     }
 }
 

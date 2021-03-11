@@ -204,7 +204,7 @@ fn main() {
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
-    for bubble in bubbles.iter_mut() {
+    for bubble in bubbles.first_mut() {
         bubble.generate_mesh(&mut id, &mut shape_generator);
         for mesh in bubble.meshes.iter_mut() {
             mesh.create_buffer_and_upload(&device);
@@ -212,12 +212,18 @@ fn main() {
     }
     // let bubble_mesh_range = 0..id.count() as u32;
 
-    for edge in edges.iter_mut() {
+    for edge in edges.first_mut() {
         edge.generate_mesh(&mut id, &mut shape_generator);
         edge.mesh.create_buffer_and_upload(&device);
     }
     // let edge_mesh_range = bubble_mesh_range.end..id.count() as u32;
     // end init
+
+    let primitive_count = bubble_count as usize * bubbles[0].meshes.len() + edges.len();
+    let mut primitives: Vec<Primitive> = Vec::with_capacity(primitive_count);
+    for _ in 0..primitive_count {
+        primitives.push(Primitive::DEFAULT.clone());
+    }
 
     let bg_vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
@@ -231,7 +237,7 @@ fn main() {
         usage: wgpu::BufferUsage::INDEX,
     });
 
-    let prim_buffer_byte_size = (id.count() as usize * std::mem::size_of::<Primitive>()) as u64;
+    let prim_buffer_byte_size = (primitive_count * std::mem::size_of::<Primitive>()) as u64;
     let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u64;
 
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
@@ -455,10 +461,7 @@ fn main() {
     let mut depth_texture_view = None;
 
     let mut frame_count: f32 = 0.0;
-    let mut primitives: Vec<Primitive> = Vec::with_capacity(id.count() as usize);
-    for _ in 0..id.count() {
-        primitives.push(Primitive::DEFAULT.clone());
-    }
+
     event_loop.run(move |event, _, control_flow| {
         if update_inputs(event, control_flow, &mut scene) {
             // keep polling inputs.
@@ -480,10 +483,10 @@ fn main() {
             }
         } 
 
-        let edge_range = (l*ml) as u32 .. id.count() as u32;
-        for edge in edges.iter_mut() {
+        let edge_range = (l*ml) as u32 .. primitive_count as u32;
+        for (edge, i) in edges.iter_mut().zip(edge_range.clone()) {
             edge.update_mesh();
-            primitives[edge.mesh.id as usize] = edge.mesh.get_uniform_buffer();
+            primitives[i as usize] = edge.mesh.get_uniform_buffer();
         }
         // end do forcelayout
 
@@ -629,7 +632,7 @@ fn main() {
 
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
-pub struct WithId(pub i32);
+pub struct WithId();
 
 impl FillVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {

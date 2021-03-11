@@ -19,7 +19,7 @@ pub fn create_bubbles(bubble_count: u64) -> Vec<Bubble> {
             // size: 30.0,
             v: Vector2{x: 0.0, y: 0.0},
             a: Vector2{x: 0.0, y: 0.0},
-            meshes: vec![],
+            meshes: [Mesh::default(), Mesh::default(), Mesh::default()],
         })
         .collect();
     // bubbles[0].size = 40.0;
