@@ -189,6 +189,10 @@ fn main() {
         )
         .unwrap();
 
+    let event_loop = EventLoop::new();
+    let window = Window::new(&event_loop).unwrap();
+    let size = window.inner_size();
+
     let mut scene = SceneParams {
         target_zoom: 5.0,
         zoom: 5.0,
@@ -199,12 +203,9 @@ fn main() {
         target_stroke_width: 1.0,
         draw_background: true,
         cursor_position: (0.0, 0.0),
-        window_size: PhysicalSize::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32),
+        window_size: PhysicalSize::new(size.width, size.height as u32),
         size_changed: true,
     };
-
-    let event_loop = EventLoop::new();
-    let window = Window::new(&event_loop).unwrap();
 
     // create an instance
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
