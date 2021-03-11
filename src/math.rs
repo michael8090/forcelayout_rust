@@ -38,6 +38,9 @@ impl Vector2 {
     // pub fn div(&mut self, a: &Vector2) -> Self {
     //     self.vector_two_operand(a, |v0, v1| {v0 / v1})
     // }
+    pub fn add_s(&self, a: f32) -> Self {
+        self.scala_two_operand(a, |v0, v1| {v0 + v1})
+    }
     pub fn assign(target: &mut Self, source: & Self) {
         target.x = source.x;
         target.y = source.y;

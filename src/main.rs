@@ -23,6 +23,7 @@ use lyon::tessellation::{StrokeOptions, StrokeTessellator};
 use lyon::algorithms::walk;
 
 use mesh::Mesh;
+use shape_builder::ShapeBuilder;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -155,8 +156,8 @@ fn main() {
     let mut scene = SceneParams {
         target_zoom: 5.0,
         zoom: 5.0,
-        target_scroll: vector(70.0, 70.0),
-        scroll: vector(70.0, 70.0),
+        target_scroll: vector(0.0, 0.0),
+        scroll: vector(0.0, 0.0),
         show_points: false,
         stroke_width: 1.0,
         target_stroke_width: 1.0,
@@ -197,19 +198,20 @@ fn main() {
     // init the game
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
     let mut id = id_generator::IdGenerator::new();
+    let mut shape_generator = ShapeBuilder::new();
     let bubble_count = 50;
     let group_size = bubble_count as usize;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
     for bubble in bubbles.iter_mut() {
-        bubble.generate_mesh(&mut id);
+        bubble.generate_mesh(&mut id, &mut shape_generator);
         for mesh in bubble.meshes.iter_mut() {
             mesh.create_buffer_and_upload(&device);
         }
     }
     for edge in edges.iter_mut() {
-        edge.generate_mesh(&mut id);
+        edge.generate_mesh(&mut id, &mut shape_generator);
         edge.mesh.create_buffer_and_upload(&device);
     }
     // end init
@@ -325,12 +327,6 @@ fn main() {
         },
     });
 
-    // let blend_state = &BlendState {
-    //     src_factor: BlendFactor::SrcAlpha,
-    //     dst_factor: BlendFactor::OneMinusSrcAlpha,
-    //     operation: BlendOperation::Add,
-    // };
-
     let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
@@ -405,7 +401,7 @@ fn main() {
             module: &bg_vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
-                array_stride: std::mem::size_of::<GpuVertex>() as u64,
+                array_stride: std::mem::size_of::<Point>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
                 attributes: &[wgpu::VertexAttribute {
                     offset: 0,
