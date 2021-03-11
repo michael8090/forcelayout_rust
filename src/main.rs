@@ -1,20 +1,20 @@
-mod math;
 mod bubble;
-mod edge;
 mod create_dataset;
-mod forcelayout;
-mod physics;
 mod drawable;
-mod project;
-mod mesh;
-mod shape_builder;
+mod edge;
+mod forcelayout;
 mod id_generator;
+mod math;
+mod mesh;
+mod physics;
+mod project;
+mod shape_builder;
 
 use forcelayout::*;
 
 use lyon::math::*;
-use lyon::path::Path;
 use lyon::path::iterator::PathIterator;
+use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator};
@@ -30,10 +30,16 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
 // For create_buffer_init()
-use wgpu::{BlendFactor, BlendOperation, BlendState, Buffer, Queue, RenderPass, util::DeviceExt};
+use wgpu::{util::DeviceExt, BlendFactor, BlendOperation, BlendState, Buffer, Queue, RenderPass};
 
 use futures::executor::block_on;
-use std::{borrow::Borrow, f64::consts, num::NonZeroI64, ops::{Range, Rem}, usize};
+use std::{
+    borrow::Borrow,
+    f64::consts,
+    num::NonZeroI64,
+    ops::{Range, Rem},
+    usize,
+};
 
 //use log;
 
@@ -98,6 +104,23 @@ unsafe impl bytemuck::Zeroable for BgPoint {}
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
+fn get_draw_mesh_range<'a>(
+    mesh_range: &'a Vec<(&Mesh, &Range<u32>)>,
+    target_range: Range<u32>,
+) -> Vec<(&'a Mesh, Range<u32>)> {
+    let mut ret = vec![];
+    for range in mesh_range.iter() {
+        if !(range.1.start > target_range.end || range.1.end < target_range.start) {
+            ret.push((
+                range.0,
+                range.1.start.max(target_range.start) - target_range.start
+                    ..range.1.end.min(target_range.end) - target_range.start,
+            ));
+        }
+    }
+    ret
+}
+
 /// Creates a texture that uses MSAA and fits a given swap chain
 fn create_multisampled_framebuffer(
     device: &wgpu::Device,
@@ -123,11 +146,22 @@ fn create_multisampled_framebuffer(
         .create_view(&wgpu::TextureViewDescriptor::default())
 }
 
-fn draw_mesh<'a, 'b, 'c, 'd>(mesh: &'a Mesh, pass: &'c mut RenderPass<'a>, instance_range: Range<u32>) {
-    pass.set_index_buffer(mesh.ibo.as_ref().unwrap().slice(..), wgpu::IndexFormat::Uint16);
+fn draw_mesh<'a, 'b, 'c, 'd>(
+    mesh: &'a Mesh,
+    pass: &'c mut RenderPass<'a>,
+    instance_range: &Range<u32>,
+) {
+    pass.set_index_buffer(
+        mesh.ibo.as_ref().unwrap().slice(..),
+        wgpu::IndexFormat::Uint16,
+    );
     pass.set_vertex_buffer(0, mesh.vbo.as_ref().unwrap().slice(..));
 
-    pass.draw_indexed(0..(mesh.geometry.indices.len() as u32), 0, instance_range)
+    pass.draw_indexed(
+        0..(mesh.geometry.indices.len() as u32),
+        0,
+        instance_range.clone(),
+    )
 }
 
 fn main() {
@@ -147,11 +181,13 @@ fn main() {
 
     let mut bg_geometry: VertexBuffers<BgPoint, u16> = VertexBuffers::new();
 
-    fill_tess.tessellate_rectangle(
-        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-        &FillOptions::DEFAULT,
-        &mut BuffersBuilder::new(&mut bg_geometry, Custom),
-    ).unwrap();
+    fill_tess
+        .tessellate_rectangle(
+            &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+            &FillOptions::DEFAULT,
+            &mut BuffersBuilder::new(&mut bg_geometry, Custom),
+        )
+        .unwrap();
 
     let mut scene = SceneParams {
         target_zoom: 5.0,
@@ -199,8 +235,8 @@ fn main() {
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
     let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
-    let bubble_count = 80;
-    let group_size = bubble_count as usize;
+    let bubble_count = 1000;
+    let group_size = bubble_count as usize / 1;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
@@ -237,12 +273,18 @@ fn main() {
         usage: wgpu::BufferUsage::INDEX,
     });
 
-    let prim_buffer_byte_size = (primitive_count * std::mem::size_of::<Primitive>()) as u64;
+    let primitive_item_size = std::mem::size_of::<Primitive>() as u32;
+    let primitive_group_item_count = (device.limits().max_uniform_buffer_binding_size
+        / primitive_item_size)
+        .min(primitive_count as u32);
+    let prim_group_buffer_byte_size = (primitive_group_item_count * primitive_item_size) as u64;
+    let prim_group_count =
+        (primitive_count as f32 / primitive_group_item_count as f32).ceil() as u32;
     let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u64;
 
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Prims ubo"),
-        size: prim_buffer_byte_size,
+        size: prim_group_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         mapped_at_creation: false,
     });
@@ -283,7 +325,7 @@ fn main() {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(prim_buffer_byte_size),
+                    min_binding_size: wgpu::BufferSize::new(prim_group_buffer_byte_size),
                 },
                 count: None,
             },
@@ -295,18 +337,18 @@ fn main() {
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer { 
+                resource: wgpu::BindingResource::Buffer {
                     buffer: &globals_ubo,
                     offset: 0,
-                    size: None
+                    size: None,
                 },
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Buffer { 
+                resource: wgpu::BindingResource::Buffer {
                     buffer: &prims_ubo,
                     offset: 0,
-                    size: None
+                    size: None,
                 },
             },
         ],
@@ -381,7 +423,7 @@ fn main() {
                     operation: BlendOperation::Add,
                 },
                 write_mask: wgpu::ColorWrite::ALL,
-            }]
+            }],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -391,7 +433,7 @@ fn main() {
         },
         depth_stencil: depth_stencil_state.clone(),
         label: None,
-        multisample: wgpu::MultisampleState{
+        multisample: wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
             alpha_to_coverage_enabled: false,
@@ -427,7 +469,7 @@ fn main() {
                 color_blend: wgpu::BlendState::REPLACE,
                 alpha_blend: wgpu::BlendState::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
-            }]
+            }],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -437,7 +479,7 @@ fn main() {
         },
         depth_stencil: depth_stencil_state.clone(),
         label: None,
-        multisample: wgpu::MultisampleState{
+        multisample: wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
             alpha_to_coverage_enabled: false,
@@ -476,14 +518,14 @@ fn main() {
         let l = bubbles.len();
         let ml = bubbles[0].meshes.len();
         let mut bubble_ranges = vec![];
-        for i in 0.. ml {
-            bubble_ranges.push((i*l) as u32..(i*l+l) as u32);
+        for i in 0..ml {
+            bubble_ranges.push((i * l) as u32..(i * l + l) as u32);
             for j in 0..l {
                 primitives[j + i * l] = bubbles[j].meshes[i].get_uniform_buffer();
             }
-        } 
+        }
 
-        let edge_range = (l*ml) as u32 .. primitive_count as u32;
+        let edge_range = (l * ml) as u32..primitive_count as u32;
         for (edge, i) in edges.iter_mut().zip(edge_range.clone()) {
             edge.update_mesh();
             primitives[i as usize] = edge.mesh.get_uniform_buffer();
@@ -532,6 +574,27 @@ fn main() {
                 return;
             }
         };
+        // A resolve target is only supported if the attachment actually uses anti-aliasing
+        // So if sample_count == 1 then we must render directly to the swapchain's buffer
+        let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
+            wgpu::RenderPassColorAttachmentDescriptor {
+                attachment: msaa_target,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                    store: true,
+                },
+                resolve_target: Some(&frame.output.view),
+            }
+        } else {
+            wgpu::RenderPassColorAttachmentDescriptor {
+                attachment: &frame.output.view,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                    store: true,
+                },
+                resolve_target: None,
+            }
+        };
 
         queue.write_buffer(
             &globals_ubo,
@@ -546,36 +609,11 @@ fn main() {
             }]),
         );
 
-        queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&primitives));
-
+        // draw the bg
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Encoder"),
         });
-
-
         {
-            // A resolve target is only supported if the attachment actually uses anti-aliasing
-            // So if sample_count == 1 then we must render directly to the swapchain's buffer
-            let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
-                wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: msaa_target,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                        store: true,
-                    },
-                    resolve_target: Some(&frame.output.view),
-                }
-            } else {
-                wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.output.view,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                        store: true,
-                    },
-                    resolve_target: None,
-                }
-            };
-
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[color_attachment],
@@ -592,39 +630,102 @@ fn main() {
                 }),
             });
 
-            pass.set_pipeline(&render_pipeline);
+            // if scene.draw_background {
+            pass.set_pipeline(&bg_pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
+            pass.set_index_buffer(bg_ibo.slice(..), wgpu::IndexFormat::Uint16);
+            pass.set_vertex_buffer(0, bg_vbo.slice(..));
 
-            // todo: how to loop over the stereo array?
-
-            let bubble_meshes = &bubbles[0].meshes;
-            for (mesh, range) in bubble_meshes.iter().zip(bubble_ranges) {
-                draw_mesh(& mesh, &mut pass, range);
-            }
-
-            let edge_mesh = &edges[0].mesh;
-            draw_mesh(& edge_mesh, &mut pass, edge_range);
-            
-            // for bubble in bubbles.iter() {
-            //     for mesh in bubble.meshes.iter() {
-            //         draw_mesh(& mesh, &mut pass, bubbles.len() as i32);
-            //     }
-            // }
-            // for edge in edges.iter() {
-            //     draw_mesh(& edge.mesh, &mut pass);
-            // }
-
-            if scene.draw_background {    
-                pass.set_pipeline(&bg_pipeline);
-                pass.set_bind_group(0, &bind_group, &[]);
-                pass.set_index_buffer(bg_ibo.slice(..), wgpu::IndexFormat::Uint16);
-                pass.set_vertex_buffer(0, bg_vbo.slice(..));
-
-                pass.draw_indexed(0..6, 0, 0..1);
-            }
+            pass.draw_indexed(0..6, 0, 0..1);
         }
 
         queue.submit(Some(encoder.finish()));
+        // }
+
+        let mut mesh_range = vec![];
+        let bubble_meshes = &bubbles[0].meshes;
+        for (mesh, range) in bubble_meshes.iter().zip(&bubble_ranges) {
+            mesh_range.push((mesh, range));
+        }
+
+        let edge_mesh = &edges[0].mesh;
+        mesh_range.push((&edge_mesh, &edge_range));
+
+        for group_index in 0..prim_group_count {
+            let i = group_index;
+            let n = primitive_group_item_count;
+            let mut st = (i * n) as usize;
+            let mut ed = ((i + 1) * n) as usize;
+            st = st.min(primitives.len());
+            ed = ed.min(primitives.len());
+
+            let primitive_slice = &primitives[st..ed];
+            queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(primitive_slice));
+
+            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Encoder"),
+            });
+
+            {
+                let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: msaa_target,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: true,
+                        },
+                        resolve_target: Some(&frame.output.view),
+                    }
+                } else {
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &frame.output.view,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: true,
+                        },
+                        resolve_target: None,
+                    }
+                };
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[color_attachment],
+                    depth_stencil_attachment: Some(
+                        wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                            attachment: depth_texture_view.as_ref().unwrap(),
+                            depth_ops: Some(wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(0.0),
+                                store: true,
+                            }),
+                            stencil_ops: Some(wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(0),
+                                store: true,
+                            }),
+                        },
+                    ),
+                });
+
+                pass.set_pipeline(&render_pipeline);
+                pass.set_bind_group(0, &bind_group, &[]);
+
+                // todo: how to loop over the stereo array?
+
+                let target_mesh_ranges = get_draw_mesh_range(&mesh_range, st as u32..ed as u32);
+
+                for (mesh, range) in target_mesh_ranges {
+                    draw_mesh(&mesh, &mut pass, &range);
+                }
+
+                // let bubble_meshes = &bubbles[0].meshes;
+                // for (mesh, range) in bubble_meshes.iter().zip(&bubble_ranges) {
+                //     draw_mesh(& mesh, &mut pass, &range);
+                // }
+
+                // let edge_mesh = &edges[0].mesh;
+                // draw_mesh(& edge_mesh, &mut pass, &edge_range);
+            }
+
+            queue.submit(Some(encoder.finish()));
+        }
 
         frame_count += 1.0;
     });

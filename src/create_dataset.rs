@@ -15,7 +15,7 @@ pub fn create_bubbles(bubble_count: u64) -> Vec<Bubble> {
     let bubbles: Vec<Bubble> = (0..bubble_count)
         .map(|_| Bubble {
             position: get_random_vec2().add_s(-0.5).mul_s(100.0),
-            size: rand::random::<f32>() * 20.0 + 5.0,
+            size: rand::random::<f32>() * 24.0 + 1.0,
             // size: 30.0,
             v: Vector2{x: 0.0, y: 0.0},
             a: Vector2{x: 0.0, y: 0.0},
