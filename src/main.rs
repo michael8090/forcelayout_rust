@@ -9,9 +9,11 @@ mod mesh;
 mod physics;
 mod project;
 mod shape_builder;
+mod gpu_forcelayout;
 
 use forcelayout::*;
 
+use gpu_forcelayout::{EdgeEntity, PhysicsEntity};
 use lyon::math::*;
 use lyon::path::iterator::PathIterator;
 use lyon::path::Path;
@@ -23,6 +25,7 @@ use lyon::tessellation::{StrokeOptions, StrokeTessellator};
 use lyon::algorithms::walk;
 
 use mesh::Mesh;
+use physics::Physics;
 use shape_builder::ShapeBuilder;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -236,7 +239,7 @@ fn main() {
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
     let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
-    let bubble_count = 100;
+    let bubble_count = 2;
     let group_size = bubble_count as usize / 1;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
@@ -247,13 +250,27 @@ fn main() {
             mesh.create_buffer_and_upload(&device);
         }
     }
-    // let bubble_mesh_range = 0..id.count() as u32;
 
     for edge in edges.first_mut() {
         edge.generate_mesh(&mut id, &mut shape_generator);
         edge.mesh.create_buffer_and_upload(&device);
     }
-    // let edge_mesh_range = bubble_mesh_range.end..id.count() as u32;
+
+    let mut bubble_physics_entities: Vec<PhysicsEntity> = vec![];
+    let mut edge_entities: Vec<EdgeEntity> = vec![];
+    for bubble in bubbles.iter() {
+        bubble_physics_entities.push(PhysicsEntity {
+            m: bubble.get_m(),
+            p: [bubble.position.x, bubble.position.y],
+            v: [bubble.v.x, bubble.v.y],
+            a: [bubble.a.x, bubble.a.y],
+        });
+    }
+    for edge in edges.iter() {
+        edge_entities.push([edge.from as u32, edge.to as u32]);
+    }
+
+    let mut gpu_forcelayout_instance = gpu_forcelayout::GpuForcelayout::new(bubble_physics_entities, edge_entities);
     // end init
 
     let primitive_count = bubble_count as usize * bubbles[0].meshes.len() + edges.len();
@@ -512,7 +529,26 @@ fn main() {
         }
 
         // do forcelayout
-        forcelayout(&mut bubbles, &mut edges);
+        // gpu force layout
+        let result = block_on(gpu_forcelayout_instance.compute());
+        for (e, b) in result.iter().zip(&mut bubbles) {
+            b.a.x = e.a[0];
+            b.a.y = e.a[1];
+
+            b.v.x = e.v[0];
+            b.v.y = e.v[1];
+
+            b.position.x = e.p[0];
+            b.position.y = e.p[1];
+        }
+        for edge in edges.iter_mut() {
+            edge.position_from.set(& (&bubbles[edge.from]).position);
+            edge.position_to.set(& (&bubbles[edge.to]).position);
+        }
+
+        // cpu force layout
+        // forcelayout(&mut bubbles, &mut edges);
+
         for bubble in bubbles.iter_mut() {
             bubble.update_mesh();
         }
