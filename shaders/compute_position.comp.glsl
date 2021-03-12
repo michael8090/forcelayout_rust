@@ -37,7 +37,10 @@ int compute_position(uint bubble_index) {
     // float damping_factor = 1.0 - atan(bubble.v.length() * 0.1) *2.0 / 3.14159265358979323846;
     // bubble.v = bubble.v * min(damping_factor, 0.9);
     // bubble.p = bubble.p + bubble.v * time_step;
-    bubble.p = vec2(0.0, 0.0);
+    bubble.p = vec2(1.0, 1.0);
+    bubble.v = vec2(1.0, 1.0);
+    bubble.a = vec2(1.0, 1.0);
+    bubble.m = 1.0;
 
     input_bubbles[bubble_index] = bubble;
     return 0;

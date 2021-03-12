@@ -22,7 +22,7 @@ pub struct GpuForcelayout {
     device: wgpu::Device,
     queue: wgpu::Queue,
     edge_buffer: Buffer,
-    bubble_input_buffer: Buffer,
+    bubble_buffer: Buffer,
     globals_buffer: Buffer,
     staging_buffer: Buffer,
     bubble_buffer_size: u64,
@@ -80,7 +80,7 @@ impl GpuForcelayout {
         let edge_buffer_size = (size_of::<EdgeEntity>() * edges.len()) as u64;
         let globals_buffer_size = size_of::<Globals>() as u64;
         let edge_buffer = create_buffer(&device, edge_buffer_size, BufferUsage::STORAGE | BufferUsage::COPY_DST);
-        let bubble_input_buffer = create_buffer(&device, bubble_buffer_size, BufferUsage::COPY_DST | BufferUsage::COPY_SRC | BufferUsage::STORAGE);
+        let bubble_buffer = create_buffer(&device, bubble_buffer_size, BufferUsage::COPY_DST | BufferUsage::COPY_SRC | BufferUsage::STORAGE);
         let globals_buffer = create_buffer(&device, globals_buffer_size, BufferUsage::COPY_SRC| BufferUsage::COPY_DST | BufferUsage::STORAGE);
         let staging_buffer = create_buffer(&device, bubble_buffer_size, BufferUsage::COPY_DST | BufferUsage::MAP_READ);
 
@@ -94,14 +94,6 @@ impl GpuForcelayout {
             },
             count: None,
         };
-        let create_bind_group_entry_desc = |binding, buffer| wgpu::BindGroupEntry {
-            binding,
-            resource: wgpu::BindingResource::Buffer {
-                buffer,
-                offset: 0,
-                size: None,
-            },
-        };
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
             entries: &[
@@ -110,17 +102,26 @@ impl GpuForcelayout {
                 create_bind_group_layout_desc(2, edge_buffer_size),
             ],
         });
+
+        let create_bind_group_entry_desc = |binding, buffer| wgpu::BindGroupEntry {
+            binding,
+            resource: wgpu::BindingResource::Buffer {
+                buffer,
+                offset: 0,
+                size: None,
+            },
+        };
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &bind_group_layout,
             entries: &[
-                create_bind_group_entry_desc(0, &bubble_input_buffer),
+                create_bind_group_entry_desc(0, &bubble_buffer),
                 create_bind_group_entry_desc(1, &globals_buffer),
                 create_bind_group_entry_desc(2, &edge_buffer),
             ],
         });
 
-        queue.write_buffer(&bubble_input_buffer, 0, bytemuck::cast_slice(&bubbles));
+        queue.write_buffer(&bubble_buffer, 0, bytemuck::cast_slice(&bubbles));
         queue.write_buffer(&globals_buffer, 0, bytemuck::cast_slice(&globals));
         queue.write_buffer(&edge_buffer, 0, bytemuck::cast_slice(&edges));
         queue.submit(None);
@@ -150,7 +151,7 @@ impl GpuForcelayout {
             device,
             queue,
             edge_buffer,
-            bubble_input_buffer,
+            bubble_buffer,
             globals_buffer,
             staging_buffer,
             compute_repulsion_pipeline,
@@ -212,7 +213,7 @@ impl GpuForcelayout {
             pass.set_pipeline(&self.compute_position_pipeline);
             pass.dispatch(self.bubble_count, 1, 1);
         }
-        encoder.copy_buffer_to_buffer(&self.bubble_input_buffer, 0, &self.staging_buffer, 0, self.bubble_buffer_size);
+        encoder.copy_buffer_to_buffer(&self.bubble_buffer, 0, &self.staging_buffer, 0, self.bubble_buffer_size);
         self.queue.submit(Some(encoder.finish()));
         self.get_compute_result().await
     }
