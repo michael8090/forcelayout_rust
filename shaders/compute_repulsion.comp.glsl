@@ -38,7 +38,7 @@ int compute_repulsion(uint bubble_index) {
     // uint bubble_count = gl_NumWorkGroups.x;
     Bubble input_bubble = input_bubbles[bubble_index];
     input_bubble.a = vec2(0.0, 0.0);
-    input_bubbles[bubble_index] = input_bubble; // for debug only, remove it
+    // input_bubbles[bubble_index] = input_bubble; // for debug only, remove it
     for (int i = 0; i < bubble_count; i++) {
         if (i == bubble_index) {
             continue;
@@ -50,7 +50,7 @@ int compute_repulsion(uint bubble_index) {
         // float len = sqrt(d_ab.x * d_ab.x + d_ab.y * d_ab.y);
         float len = length(d_ab);
         vec2 nd_ab = d_ab / len;
-        float repulsive_force_factor = 100;
+        float repulsive_force_factor = 1;
 
         vec2 repulsive_force = nd_ab * (repulsive_force_factor * input_bubble.m * bubble_b.m / (len * len));
         vec2 a_a = repulsive_force * (-1.0 / input_bubble.m);
@@ -65,7 +65,7 @@ int compute_repulsion(uint bubble_index) {
         // vec2 p = input_bubble.p;
         // input_bubble.m = sqrt(p.x * p.x + p.y * p.y);
     }
-    // input_bubbles[bubble_index] = input_bubble;
+    input_bubbles[bubble_index] = input_bubble;
     return 0;
 }
 

@@ -13,7 +13,7 @@ mod gpu_forcelayout;
 
 use forcelayout::*;
 
-use gpu_forcelayout::{EdgeEntity, PhysicsEntity};
+use gpu_forcelayout::{EdgeEntity, BubbleGpuEntity};
 use lyon::math::*;
 use lyon::path::iterator::PathIterator;
 use lyon::path::Path;
@@ -240,7 +240,7 @@ fn main() {
     let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
     // up to about 20000
-    let bubble_count = 3;
+    let bubble_count = 100;
     let group_size = bubble_count as usize / 1;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
@@ -257,10 +257,10 @@ fn main() {
         edge.mesh.create_buffer_and_upload(&device);
     }
 
-    let mut bubble_physics_entities: Vec<PhysicsEntity> = vec![];
+    let mut bubble_physics_entities: Vec<BubbleGpuEntity> = vec![];
     let mut edge_entities: Vec<EdgeEntity> = vec![];
     for bubble in bubbles.iter() {
-        bubble_physics_entities.push(PhysicsEntity {
+        bubble_physics_entities.push(BubbleGpuEntity {
             m: bubble.get_m(),
             _pad1: 0.0,
             p: [bubble.position.x, bubble.position.y],

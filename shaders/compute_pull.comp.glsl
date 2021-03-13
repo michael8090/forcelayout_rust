@@ -19,7 +19,7 @@ struct Edge {
 // make sure to use only a single set and keep all your n parameters in n storage buffers in bindings 0 to n-1
 // you shouldn't use push constants or anything OTHER than storage buffers for passing stuff into the kernel
 // just use buffers with one buffer per binding
-layout(std140, binding = 0) coherent buffer B1 {
+layout(std140, binding = 0) buffer B1 {
     Bubble input_bubbles[];
 }; // this is used as both input and output for convenience
 
@@ -34,25 +34,35 @@ layout(std140, binding = 2) buffer B3 {
     Edge[] edges;
 };
 
-int compute_repulsion(uint edge_index) {
-    memoryBarrierBuffer();
-    // uint bubble_count = gl_NumWorkGroups.x;
-    Edge edge = edges[edge_index];
-    Bubble bubble_from = input_bubbles[edge.from];
-    Bubble bubble_to = input_bubbles[edge.to];
+vec2 calculate_bubble_repulsion(Bubble bubble_from, Bubble bubble_to) {
     vec2 d_from_to = bubble_to.p - bubble_from.p;
-    float pull_force_factor = 100.0;
+    float pull_force_factor = 1.0;
     vec2 pull_force_from_to = d_from_to * pull_force_factor;
 
     vec2 a_from = pull_force_from_to / bubble_from.m;
-    bubble_from.a = bubble_from.a + a_from;
+    return a_from;
+}
 
-    vec2 a_to = -1 * pull_force_from_to / bubble_to.m;
-    bubble_to.a = bubble_to.a + a_to;
+int compute_repulsion(uint bubble_index) {
+    for (int i = 0; i < edge_count; i++) {
+        Edge edge = edges[i];
+        int i_from = edge.from;
+        int i_to = edge.to;
+        int connected_index = -1;
+        if (i_from == bubble_index) {
+            connected_index = i_to;
+        }
+        if (i_to == bubble_index) {
+            connected_index = i_from;
+        }
+        if (connected_index != -1) {
+            Bubble bubble = input_bubbles[bubble_index];
+            Bubble connected_bubble = input_bubbles[connected_index];
+            bubble.a = bubble.a + calculate_bubble_repulsion(bubble, connected_bubble);
+            input_bubbles[bubble_index] = bubble;
+        }
+    }
 
-
-    input_bubbles[edge.from] = bubble_from;
-    input_bubbles[edge.to] = bubble_to;
     return 0;
 }
 

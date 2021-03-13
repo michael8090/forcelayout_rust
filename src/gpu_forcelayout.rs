@@ -7,7 +7,7 @@ use crate::math::Vector2;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct PhysicsEntity {
+pub struct BubbleGpuEntity {
     pub m: f32,
     // if i don't pad a float here, the os will fill a random number here anyway, and it ruins the buffer size calculation
     // see https://renderdoc.org/vkspec_chunked/chap16.html#interfaces-resources-layout
@@ -16,8 +16,8 @@ pub struct PhysicsEntity {
     pub v: [f32; 2],
     pub a: [f32; 2],
 }
-unsafe impl bytemuck::Pod for PhysicsEntity {}
-unsafe impl bytemuck::Zeroable for PhysicsEntity {}
+unsafe impl bytemuck::Pod for BubbleGpuEntity {}
+unsafe impl bytemuck::Zeroable for BubbleGpuEntity {}
 
 pub struct GpuForcelayout {
     instance: Instance,
@@ -56,7 +56,7 @@ fn create_buffer(device: &wgpu::Device, size: u64, usage: BufferUsage) -> Buffer
 }
 
 impl GpuForcelayout {
-    pub fn new(bubbles: Vec<PhysicsEntity>, edges: Vec<EdgeEntity>) -> Self {
+    pub fn new(bubbles: Vec<BubbleGpuEntity>, edges: Vec<EdgeEntity>) -> Self {
         let globals:Globals = [bubbles.len() as u32, edges.len() as u32, 0, 0];
         
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
@@ -81,7 +81,7 @@ impl GpuForcelayout {
         let compute_pull_module = &device.create_shader_module(&wgpu::include_spirv!("./../shaders/compute_pull.comp.spv"));
         let compute_position_module = &device.create_shader_module(&wgpu::include_spirv!("./../shaders/compute_position.comp.spv"));
 
-        let bubble_buffer_size = (size_of::<PhysicsEntity>() * bubbles.len()) as u64;
+        let bubble_buffer_size = (size_of::<BubbleGpuEntity>() * bubbles.len()) as u64;
         let edge_buffer_size = (size_of::<EdgeEntity>() * edges.len()) as u64;
         let globals_buffer_size = size_of::<Globals>() as u64;
         let edge_buffer = create_buffer(&device, edge_buffer_size, BufferUsage::STORAGE | BufferUsage::COPY_DST);
@@ -169,7 +169,7 @@ impl GpuForcelayout {
         }
     }
 
-    async fn get_compute_result(&self) -> Vec<PhysicsEntity> {
+    async fn get_compute_result(&self) -> Vec<BubbleGpuEntity> {
         // Note that we're not calling `.await` here.
         let staging_buffer = &self.staging_buffer;
         let buffer_slice = staging_buffer.slice(..);
@@ -187,8 +187,8 @@ impl GpuForcelayout {
             let data = buffer_slice.get_mapped_range();
             // Since contents are got in bytes, this converts these bytes back to u32
             let result = data
-                .chunks_exact(size_of::<PhysicsEntity>())
-                .map(|entity_bytes| *bytemuck::from_bytes::<PhysicsEntity>(&entity_bytes))
+                .chunks_exact(size_of::<BubbleGpuEntity>())
+                .map(|entity_bytes| *bytemuck::from_bytes::<BubbleGpuEntity>(&entity_bytes))
                 .collect();
 
             // With the current interface, we have to make sure all mapped views are
@@ -201,7 +201,7 @@ impl GpuForcelayout {
         }
     }
 
-    pub async fn compute(&mut self) -> Vec<PhysicsEntity> {
+    pub async fn compute(&mut self) -> Vec<BubbleGpuEntity> {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
@@ -213,7 +213,7 @@ impl GpuForcelayout {
             pass.dispatch(self.bubble_count, 1, 1);
             
             pass.set_pipeline(&self.compute_pull_pipeline);
-            pass.dispatch(self.edge_count, 1, 1);
+            pass.dispatch(self.bubble_count, 1, 1);
 
             pass.set_pipeline(&self.compute_position_pipeline);
             pass.dispatch(self.bubble_count, 1, 1);
