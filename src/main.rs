@@ -240,7 +240,7 @@ fn main() {
     let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
     // up to about 20000
-    let bubble_count = 100;
+    let bubble_count = 20000;
     let group_size = bubble_count as usize / 1;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
     let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
