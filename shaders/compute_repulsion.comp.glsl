@@ -38,30 +38,34 @@ int compute_repulsion(uint bubble_index) {
     // uint bubble_count = gl_NumWorkGroups.x;
     Bubble input_bubble = input_bubbles[bubble_index];
     input_bubble.a = vec2(0.0, 0.0);
+    input_bubbles[bubble_index] = input_bubble; // for debug only, remove it
     for (int i = 0; i < bubble_count; i++) {
         if (i == bubble_index) {
             continue;
         }
         Bubble bubble_b = input_bubbles[i];
         vec2 d_ab = bubble_b.p - input_bubble.p;
-        float len = max(d_ab.length(), 0.1);
-        vec2 nd_ab = normalize(d_ab);
-        // float repulsive_force_factor = 0.00012;
-        float repulsive_force_factor = 1;
+        // the `length()` always get 2... no idea why
+        // https://github.com/gfx-rs/wgpu-rs/issues/789
+        // float len = sqrt(d_ab.x * d_ab.x + d_ab.y * d_ab.y);
+        float len = length(d_ab);
+        vec2 nd_ab = d_ab / len;
+        float repulsive_force_factor = 100;
 
         vec2 repulsive_force = nd_ab * (repulsive_force_factor * input_bubble.m * bubble_b.m / (len * len));
         vec2 a_a = repulsive_force * (-1.0 / input_bubble.m);
         // vec2 a_a = vec2(0.0, 0.0) * (-1.0 / input_bubble.m);
-        // input_bubble.a = input_bubble.a + a_a;
-        input_bubble.a = bubble_b.p;
-        input_bubble.v = d_ab;
-        input_bubble.p = vec2(1.0, 0);
+        input_bubble.a = input_bubble.a + a_a;
+        
+        // input_bubble.a = bubble_b.p;
+        // input_bubble.v = d_ab;
+        // input_bubble.p = repulsive_force;
         // input_bubble.m = (repulsive_force_factor * input_bubble.m * bubble_b.m / (len * len));
-        input_bubble.p = vec2(1.0, 0.0);
-        input_bubble.m = input_bubble.p.length();
+        // input_bubble.p = nd_ab;
+        // vec2 p = input_bubble.p;
+        // input_bubble.m = sqrt(p.x * p.x + p.y * p.y);
     }
-    // input_bubble.a = vec2(bubble_index, bubble_count);
-    input_bubbles[bubble_index] = input_bubble;
+    // input_bubbles[bubble_index] = input_bubble;
     return 0;
 }
 

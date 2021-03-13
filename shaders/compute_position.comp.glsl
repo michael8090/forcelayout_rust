@@ -36,11 +36,14 @@ layout(std140, binding = 2) buffer B3 {
 
 int compute_position(uint bubble_index) {
     // uint bubble_count = gl_NumWorkGroups.x;
-    float time_step = 0.5;
+    float time_step = 0.005;
     Bubble bubble = input_bubbles[bubble_index];
     bubble.v = bubble.v + bubble.a * time_step;
-    float damping_factor = 1.0 - atan(bubble.v.length() * 0.1) *2.0 / 3.141592653589;
-    bubble.v = bubble.v * min(damping_factor, 0.9);
+    // the `length()` always get 2... no idea why
+    // https://github.com/gfx-rs/wgpu-rs/issues/789
+    float damping_factor = min(1.0 - atan(length(bubble.v) * 0.1) *2.0 / 3.141592653589, 0.9);
+    damping_factor = 1.0;
+    bubble.v = bubble.v * damping_factor;
     bubble.p = bubble.p + bubble.v * time_step;
 
     // bubble.m = 1.0;
@@ -48,7 +51,7 @@ int compute_position(uint bubble_index) {
     // bubble.v = vec2(4.0, 5.0);
     // bubble.a = vec2(6.0, 7.0);
 
-    // input_bubbles[bubble_index] = bubble;
+    input_bubbles[bubble_index] = bubble;
     return 0;
 }
 

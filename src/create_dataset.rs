@@ -16,14 +16,14 @@ pub fn create_bubbles(bubble_count: u64) -> Vec<Bubble> {
         .map(|_| Bubble {
             position: get_random_vec2().add_s(-0.5).mul_s(100.0),
             // size: rand::random::<f32>() * 24.0 + 1.0,
-            size: 1.0,
+            size: 100.0,
             v: Vector2{x: 0.0, y: 0.0},
             a: Vector2{x: 0.0, y: 0.0},
             meshes: [Mesh::default(), Mesh::default(), Mesh::default()],
         })
         .collect();
-    bubbles[0].position = Vector2{x: 0.0, y: 0.0};
-    bubbles[1].position = Vector2{x: 1.0, y: 0.0};
+    // bubbles[0].position = Vector2{x: 0.0, y: 0.0};
+    // bubbles[1].position = Vector2{x: 1.0, y: 0.0};
     bubbles
 }
 

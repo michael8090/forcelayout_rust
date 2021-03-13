@@ -19,8 +19,8 @@ struct Edge {
 // make sure to use only a single set and keep all your n parameters in n storage buffers in bindings 0 to n-1
 // you shouldn't use push constants or anything OTHER than storage buffers for passing stuff into the kernel
 // just use buffers with one buffer per binding
-layout(std140, binding = 0) buffer B1 {
-    Bubble[] input_bubbles;
+layout(std140, binding = 0) coherent buffer B1 {
+    Bubble input_bubbles[];
 }; // this is used as both input and output for convenience
 
 layout(std140, binding = 1) buffer B2 {
@@ -35,19 +35,24 @@ layout(std140, binding = 2) buffer B3 {
 };
 
 int compute_repulsion(uint edge_index) {
+    memoryBarrierBuffer();
     // uint bubble_count = gl_NumWorkGroups.x;
     Edge edge = edges[edge_index];
     Bubble bubble_from = input_bubbles[edge.from];
     Bubble bubble_to = input_bubbles[edge.to];
     vec2 d_from_to = bubble_to.p - bubble_from.p;
-    float pull_force_factor = 1.0;
+    float pull_force_factor = 100.0;
     vec2 pull_force_from_to = d_from_to * pull_force_factor;
-    vec2 a_from = pull_force_from_to * (1.0 / bubble_from.m);
+
+    vec2 a_from = pull_force_from_to / bubble_from.m;
     bubble_from.a = bubble_from.a + a_from;
-    vec2 a_to = a_from * (-1.0 * bubble_from.m / bubble_to.m);
+
+    vec2 a_to = -1 * pull_force_from_to / bubble_to.m;
     bubble_to.a = bubble_to.a + a_to;
-    // input_bubbles[edge.from] = bubble_from;
-    // input_bubbles[edge.to] = bubble_to;
+
+
+    input_bubbles[edge.from] = bubble_from;
+    input_bubbles[edge.to] = bubble_to;
     return 0;
 }
 
