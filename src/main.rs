@@ -239,6 +239,7 @@ fn main() {
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
     let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
+    // up to about 20000
     let bubble_count = 2;
     let group_size = bubble_count as usize / 1;
     let mut bubbles = create_dataset::create_bubbles(bubble_count);
@@ -261,13 +262,14 @@ fn main() {
     for bubble in bubbles.iter() {
         bubble_physics_entities.push(PhysicsEntity {
             m: bubble.get_m(),
+            _pad1: 0.0,
             p: [bubble.position.x, bubble.position.y],
             v: [bubble.v.x, bubble.v.y],
             a: [bubble.a.x, bubble.a.y],
         });
     }
     for edge in edges.iter() {
-        edge_entities.push([edge.from as u32, edge.to as u32]);
+        edge_entities.push([edge.from as u32, edge.to as u32, 0, 0]);
     }
 
     let mut gpu_forcelayout_instance = gpu_forcelayout::GpuForcelayout::new(bubble_physics_entities, edge_entities);

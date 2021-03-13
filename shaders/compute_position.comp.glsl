@@ -3,6 +3,7 @@ layout(local_size_x = 1) in; // our thread block size is 1, that is we only have
 
 struct Bubble {
     float m;
+    float _pad1;
     vec2 p;
     vec2 v;
     vec2 a;
@@ -11,38 +12,43 @@ struct Bubble {
 struct Edge {
     int from;
     int to;
+    int _pad1;
+    int _pad2;
 };
 
 // make sure to use only a single set and keep all your n parameters in n storage buffers in bindings 0 to n-1
 // you shouldn't use push constants or anything OTHER than storage buffers for passing stuff into the kernel
 // just use buffers with one buffer per binding
 layout(std140, binding = 0) buffer B1 {
-    Bubble input_bubbles[2];
+    Bubble[] input_bubbles;
 }; // this is used as both input and output for convenience
 
 layout(std140, binding = 1) buffer B2 {
     uint bubble_count;
     uint edge_count;
+    uint _pad1;
+    uint _pad2;
 }; // this is used as both input and output for convenience
 
 layout(std140, binding = 2) buffer B3 {
-    Edge edges[1];
+    Edge[] edges;
 };
 
 int compute_position(uint bubble_index) {
     // uint bubble_count = gl_NumWorkGroups.x;
     float time_step = 0.5;
     Bubble bubble = input_bubbles[bubble_index];
-    // bubble.v = bubble.v + bubble.a * time_step;
-    // float damping_factor = 1.0 - atan(bubble.v.length() * 0.1) *2.0 / 3.14159265358979323846;
-    // bubble.v = bubble.v * min(damping_factor, 0.9);
-    // bubble.p = bubble.p + bubble.v * time_step;
-    bubble.p = vec2(1.0, 1.0);
-    bubble.v = vec2(1.0, 1.0);
-    bubble.a = vec2(1.0, 1.0);
-    bubble.m = 1.0;
+    bubble.v = bubble.v + bubble.a * time_step;
+    float damping_factor = 1.0 - atan(bubble.v.length() * 0.1) *2.0 / 3.141592653589;
+    bubble.v = bubble.v * min(damping_factor, 0.9);
+    bubble.p = bubble.p + bubble.v * time_step;
 
-    input_bubbles[bubble_index] = bubble;
+    // bubble.m = 1.0;
+    // bubble.p = vec2(2.0, 3.0);
+    // bubble.v = vec2(4.0, 5.0);
+    // bubble.a = vec2(6.0, 7.0);
+
+    // input_bubbles[bubble_index] = bubble;
     return 0;
 }
 

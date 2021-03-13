@@ -9,6 +9,9 @@ use crate::math::Vector2;
 #[derive(Copy, Clone)]
 pub struct PhysicsEntity {
     pub m: f32,
+    // if i don't pad a float here, the os will fill a random number here anyway, and it ruins the buffer size calculation
+    // see https://renderdoc.org/vkspec_chunked/chap16.html#interfaces-resources-layout
+    pub _pad1: f32, 
     pub p: [f32; 2],
     pub v: [f32; 2],
     pub a: [f32; 2],
@@ -34,9 +37,11 @@ pub struct GpuForcelayout {
     edge_count: u32,
 }
 
-type Globals = [u32; 2];
+type Globals = [u32; 4];
 
-pub type EdgeEntity = [u32; 2];
+// and every element in an array should be 16 bytes(4 u32)
+// https://www.cnblogs.com/murongxiaopifu/p/9697704.html
+pub type EdgeEntity = [u32; 4];
 // unsafe impl bytemuck::Pod for GpuForcelayout {}
 // unsafe impl bytemuck::Zeroable for GpuForcelayout {}
 
@@ -52,7 +57,7 @@ fn create_buffer(device: &wgpu::Device, size: u64, usage: BufferUsage) -> Buffer
 
 impl GpuForcelayout {
     pub fn new(bubbles: Vec<PhysicsEntity>, edges: Vec<EdgeEntity>) -> Self {
-        let globals:Globals = [bubbles.len() as u32, edges.len() as u32];
+        let globals:Globals = [bubbles.len() as u32, edges.len() as u32, 0, 0];
         
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         // create an adapter
