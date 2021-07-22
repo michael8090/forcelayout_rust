@@ -28,7 +28,7 @@ impl  Edge {
         self.mesh.rotation = p.angle_from_x_axis().get();
         self.mesh.position = [self.position_from.x, self.position_from.y];
         self.mesh.scale = l;
-    self.mesh.material.color = [0.5, 0.7, 0.7, 0.1];
+        self.mesh.material.color = [0.5, 0.7, 0.7, 0.7];
         self.mesh.width = 0.2;
     }
 }

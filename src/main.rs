@@ -3,17 +3,17 @@ mod create_dataset;
 mod drawable;
 mod edge;
 mod forcelayout;
+mod gpu_forcelayout;
 mod id_generator;
 mod math;
 mod mesh;
 mod physics;
 mod project;
 mod shape_builder;
-mod gpu_forcelayout;
 
 use forcelayout::*;
 
-use gpu_forcelayout::{EdgeEntity, BubbleGpuEntity};
+use gpu_forcelayout::{BubbleGpuEntity, EdgeEntity};
 use lyon::math::*;
 use lyon::path::iterator::PathIterator;
 use lyon::path::Path;
@@ -43,6 +43,8 @@ use std::{
     ops::{Range, Rem},
     usize,
 };
+
+use crate::{math::Vector2, project::fit_into_view};
 
 //use log;
 
@@ -242,8 +244,10 @@ fn main() {
     // up to about 20000
     let bubble_count = 500;
     let group_size = bubble_count as usize / 1;
-    let mut bubbles = create_dataset::create_bubbles(bubble_count);
-    let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
+    // let mut bubbles = create_dataset::create_bubbles(bubble_count);
+    // let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
+
+    let (mut bubbles, mut edges) = create_dataset::create_dataset_from_file().unwrap();
 
     for bubble in bubbles.first_mut() {
         bubble.generate_mesh(&mut id, &mut shape_generator);
@@ -272,7 +276,8 @@ fn main() {
         edge_entities.push([edge.from as u32, edge.to as u32, 0, 0]);
     }
 
-    let mut gpu_forcelayout_instance = gpu_forcelayout::GpuForcelayout::new(bubble_physics_entities, edge_entities);
+    let mut gpu_forcelayout_instance =
+        gpu_forcelayout::GpuForcelayout::new(bubble_physics_entities, edge_entities);
     // end init
 
     let primitive_count = bubble_count as usize * bubbles[0].meshes.len() + edges.len();
@@ -531,6 +536,10 @@ fn main() {
         }
 
         // do forcelayout
+
+        // cpu force layout
+        // forcelayout(&mut bubbles, &mut edges);
+        
         // gpu force layout
         let result = block_on(gpu_forcelayout_instance.compute());
         for (e, b) in result.iter().zip(&mut bubbles) {
@@ -543,13 +552,11 @@ fn main() {
             b.position.x = e.p[0];
             b.position.y = e.p[1];
         }
-        for edge in edges.iter_mut() {
-            edge.position_from.set(& (&bubbles[edge.from]).position);
-            edge.position_to.set(& (&bubbles[edge.to]).position);
-        }
 
-        // cpu force layout
-        // forcelayout(&mut bubbles, &mut edges);
+        for edge in edges.iter_mut() {
+            edge.position_from.set(&(&bubbles[edge.from]).position);
+            edge.position_to.set(&(&bubbles[edge.to]).position);
+        }
 
         for bubble in bubbles.iter_mut() {
             bubble.update_mesh();
@@ -568,6 +575,71 @@ fn main() {
         for (edge, i) in edges.iter_mut().zip(edge_range.clone()) {
             edge.update_mesh();
             primitives[i as usize] = edge.mesh.get_uniform_buffer();
+        }
+
+        {
+            // fit into window
+            let first_bubble = &bubbles[0];
+            let mut min = first_bubble.position.clone();
+            let mut max = min.clone();
+            for b in &bubbles {
+                let p = &b.position;
+                if p.x <= min.x {
+                    min.x = p.x;
+                }
+                if p.y <= min.y {
+                    min.y = p.y;
+                }
+                if p.x >= max.x {
+                    max.x = p.x;
+                }
+                if p.y >= max.y {
+                    max.y = p.y;
+                }
+            }
+            let bubble_rect = math::Rect {
+                origin: min.clone(),
+                width: max.x - min.x,
+                height: max.y - min.y,
+            };
+
+            let half_width = 0.5 * scene.window_size.width as f32;
+            let half_height = 0.5 * scene.window_size.height as f32;
+
+            let padding = 100.0;
+
+            let view_rect = math::Rect {
+                origin: Vector2 {
+                    x: -half_width + padding,
+                    y: -half_height + padding,
+                },
+                width: scene.window_size.width as f32 - 2.0 * padding,
+                height: scene.window_size.height as f32 - 2.0 * padding,
+            };
+
+            for b in &mut bubbles {
+                let new_pos = fit_into_view(&b.position, &bubble_rect, &view_rect);
+                let d = new_pos.sub(&b.position);
+                for m in &mut b.meshes {
+                    m.position =  [m.position[0] + d.x,m.position[1] + d.y];
+                }
+            }
+
+            for edge in edges.iter_mut() {
+                // it's a hack here, and I know the maintenance sucks
+                let bubble_from_mesh_pos = &(&bubbles[edge.from]).meshes[0].position;
+                let bubble_to_mesh_pos = &(&bubbles[edge.to]).meshes[0].position;
+
+                edge.position_from = Vector2 {
+                    x: bubble_from_mesh_pos[0],
+                    y: bubble_from_mesh_pos[1],
+                };
+                edge.position_to = Vector2 {
+                    x: bubble_to_mesh_pos[0],
+                    y: bubble_to_mesh_pos[1],
+                };
+                edge.update_mesh();
+            }
         }
         // end do forcelayout
 
