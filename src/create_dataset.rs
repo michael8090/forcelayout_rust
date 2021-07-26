@@ -23,6 +23,7 @@ pub fn create_bubbles(bubble_count: u64) -> Vec<Bubble> {
             v: Vector2{x: 0.0, y: 0.0},
             a: Vector2{x: 0.0, y: 0.0},
             meshes: [Mesh::default(), Mesh::default(), Mesh::default()],
+            label: String::from(""),
         })
         .collect();
     // bubbles[0].position = Vector2{x: 0.0, y: 0.0};
@@ -62,13 +63,14 @@ pub fn create_dataset_from_file() -> Result<(Vec<Bubble>, Vec<Edge>)> {
         node["id"].as_str().unwrap()
     }).collect();
 
-    let bubbles = nodes.into_iter().map(|_| Bubble {
+    let mut bubbles: Vec<Bubble> = nodes.into_iter().map(|node| Bubble {
         position: get_random_vec2().add_s(-0.5).mul_s(100.0),
-        size: rand::random::<f32>() * 24.0 + 1.0,
+        size: 100.0,
         // size: 100.0,
         v: Vector2{x: 0.0, y: 0.0},
         a: Vector2{x: 0.0, y: 0.0},
         meshes: [Mesh::default(), Mesh::default(), Mesh::default()],
+        label: String::from(node["id"].as_str().unwrap()),
     })
     .collect();
 
@@ -77,9 +79,18 @@ pub fn create_dataset_from_file() -> Result<(Vec<Bubble>, Vec<Edge>)> {
     let edges = links.into_iter().map(|link| {
         let source = link["source"].as_str().unwrap();
         let from = (&node_names).into_iter().position(|&name| name == source).unwrap();
+        {
+            let from_bubble = &mut bubbles[from];
+            from_bubble.size += 10.0;
+        }
 
         let target = link["target"].as_str().unwrap();
         let to = (&node_names).into_iter().position(|&name| name == target).unwrap();
+        
+        {
+            let to_bubble = &mut bubbles[to];
+            to_bubble.size += 10.0;
+        }
 
         Edge {
             position_from: get_random_vec2(),

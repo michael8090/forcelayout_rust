@@ -11,6 +11,8 @@ mod physics;
 mod project;
 mod shape_builder;
 
+use bubble::Bubble;
+use edge::Edge;
 use forcelayout::*;
 
 use gpu_forcelayout::{BubbleGpuEntity, EdgeEntity};
@@ -169,6 +171,28 @@ fn draw_mesh<'a, 'b, 'c, 'd>(
     )
 }
 
+fn create_forcelayout_instance(bubbles: &Vec<Bubble>, edges: &Vec<Edge>) -> gpu_forcelayout::GpuForcelayout {
+    let mut bubble_physics_entities: Vec<BubbleGpuEntity> = vec![];
+    let mut edge_entities: Vec<EdgeEntity> = vec![];
+    for bubble in bubbles.iter() {
+        bubble_physics_entities.push(BubbleGpuEntity {
+            m: bubble.get_m(),
+            _pad1: 0.0,
+            p: [bubble.position.x, bubble.position.y],
+            v: [bubble.v.x, bubble.v.y],
+            a: [bubble.a.x, bubble.a.y],
+        });
+    }
+    for edge in edges.iter() {
+        edge_entities.push([edge.from as u32, edge.to as u32, 0, 0]);
+    }
+
+    let gpu_forcelayout_instance =
+        gpu_forcelayout::GpuForcelayout::new(bubble_physics_entities, edge_entities);
+
+    gpu_forcelayout_instance
+}
+
 fn main() {
     env_logger::init();
     println!("== wgpu example ==");
@@ -199,8 +223,8 @@ fn main() {
     let size = window.inner_size();
 
     let mut scene = SceneParams {
-        target_zoom: 5.0,
-        zoom: 5.0,
+        target_zoom: 1.0,
+        zoom: 1.0,
         target_scroll: vector(0.0, 0.0),
         scroll: vector(0.0, 0.0),
         show_points: false,
@@ -210,6 +234,7 @@ fn main() {
         cursor_position: (0.0, 0.0),
         window_size: PhysicalSize::new(size.width, size.height as u32),
         size_changed: true,
+        need_reset: false,
     };
 
     // create an instance
@@ -261,23 +286,10 @@ fn main() {
         edge.mesh.create_buffer_and_upload(&device);
     }
 
-    let mut bubble_physics_entities: Vec<BubbleGpuEntity> = vec![];
-    let mut edge_entities: Vec<EdgeEntity> = vec![];
-    for bubble in bubbles.iter() {
-        bubble_physics_entities.push(BubbleGpuEntity {
-            m: bubble.get_m(),
-            _pad1: 0.0,
-            p: [bubble.position.x, bubble.position.y],
-            v: [bubble.v.x, bubble.v.y],
-            a: [bubble.a.x, bubble.a.y],
-        });
-    }
-    for edge in edges.iter() {
-        edge_entities.push([edge.from as u32, edge.to as u32, 0, 0]);
-    }
 
-    let mut gpu_forcelayout_instance =
-        gpu_forcelayout::GpuForcelayout::new(bubble_physics_entities, edge_entities);
+
+    let mut gpu_forcelayout_instance = create_forcelayout_instance(&bubbles, &edges);
+
     // end init
 
     let primitive_count = bubble_count as usize * bubbles[0].meshes.len() + edges.len();
@@ -535,6 +547,18 @@ fn main() {
             return;
         }
 
+        if scene.need_reset {
+            scene.need_reset = false;
+            for b in &mut bubbles {
+                let random_vec2 = Vector2 {
+                    x: rand::random(),
+                    y: rand::random(),
+                };
+                b.position = random_vec2.add_s(-0.5).mul_s(100.0);
+            }
+            gpu_forcelayout_instance = create_forcelayout_instance(&bubbles, &edges);
+        }
+
         // do forcelayout
 
         // cpu force layout
@@ -542,6 +566,8 @@ fn main() {
         
         // gpu force layout
         let result = block_on(gpu_forcelayout_instance.compute());
+
+        // read layout data back from gpu
         for (e, b) in result.iter().zip(&mut bubbles) {
             b.a.x = e.a[0];
             b.a.y = e.a[1];
@@ -552,29 +578,17 @@ fn main() {
             b.position.x = e.p[0];
             b.position.y = e.p[1];
         }
-
         for edge in edges.iter_mut() {
             edge.position_from.set(&(&bubbles[edge.from]).position);
             edge.position_to.set(&(&bubbles[edge.to]).position);
         }
 
+        // update mesh
         for bubble in bubbles.iter_mut() {
             bubble.update_mesh();
         }
-        let l = bubbles.len();
-        let ml = bubbles[0].meshes.len();
-        let mut bubble_ranges = vec![];
-        for i in 0..ml {
-            bubble_ranges.push((i * l) as u32..(i * l + l) as u32);
-            for j in 0..l {
-                primitives[j + i * l] = bubbles[j].meshes[i].get_uniform_buffer();
-            }
-        }
-
-        let edge_range = (l * ml) as u32..primitive_count as u32;
-        for (edge, i) in edges.iter_mut().zip(edge_range.clone()) {
+        for edge in edges.iter_mut() {
             edge.update_mesh();
-            primitives[i as usize] = edge.mesh.get_uniform_buffer();
         }
 
         {
@@ -617,11 +631,20 @@ fn main() {
                 height: scene.window_size.height as f32 - 2.0 * padding,
             };
 
+            // let view_rect = math::Rect {
+            //     origin: Vector2 {
+            //         x: -1.0,
+            //         y: -1.0,
+            //     },
+            //     width: 1.0,
+            //     height: scene.window_size.height as f32 * 0.125
+            // };
+
             for b in &mut bubbles {
                 let new_pos = fit_into_view(&b.position, &bubble_rect, &view_rect);
                 let d = new_pos.sub(&b.position);
                 for m in &mut b.meshes {
-                    m.position =  [m.position[0] + d.x,m.position[1] + d.y];
+                    m.position =  [m.position[0] + d.x, m.position[1] + d.y];
                 }
             }
 
@@ -640,6 +663,22 @@ fn main() {
                 };
                 edge.update_mesh();
             }
+        }
+
+        // update gpu primitives
+        let l = bubbles.len();
+        let ml = bubbles[0].meshes.len();
+        let mut bubble_ranges = vec![];
+        let edge_range = (l * ml) as u32..primitive_count as u32;
+
+        for i in 0..ml {
+            bubble_ranges.push((i * l) as u32..(i * l + l) as u32);
+            for j in 0..l {
+                primitives[j + i * l] = bubbles[j].meshes[i].get_uniform_buffer();
+            }
+        }
+        for (edge, i) in edges.iter_mut().zip(edge_range.clone()) {
+            primitives[i as usize] = edge.mesh.get_uniform_buffer();
         }
         // end do forcelayout
 
@@ -888,6 +927,7 @@ struct SceneParams {
     cursor_position: (f32, f32),
     window_size: PhysicalSize<u32>,
     size_changed: bool,
+    need_reset: bool,
 }
 
 fn update_inputs(
@@ -969,6 +1009,9 @@ fn update_inputs(
             }
             VirtualKeyCode::Z => {
                 scene.target_stroke_width *= 0.8;
+            }
+            VirtualKeyCode::Space => {
+                scene.need_reset = true;
             }
             _key => {}
         },

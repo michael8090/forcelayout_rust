@@ -59,4 +59,23 @@ impl ShapeBuilder {
         mesh.id = id;
         mesh
     }
+
+    // pub fn build_label<F>(&mut self, id: i32, build: F) -> Mesh
+    // where
+    //     F: Fn(&mut Builder),
+    // {
+    //     let mut mesh = Mesh::default();
+    //     let mut builder = Path::builder();
+    //     build(&mut builder);
+    //     let path = builder.build();
+    //     self.stroke_tess
+    //         .tessellate_path(
+    //             &path,
+    //             &StrokeOptions::tolerance(self.tolerance),
+    //             &mut BuffersBuilder::new(&mut mesh.geometry, WithId()),
+    //         )
+    //         .unwrap();
+    //     mesh.id = id;
+    //     mesh
+    // }
 }

@@ -10,6 +10,7 @@ pub struct Bubble {
     pub v: Vector2,
     pub a: Vector2,
     pub meshes: [Mesh; 3],
+    pub label: String,
 }
 
 impl Bubble {
@@ -27,6 +28,8 @@ impl Bubble {
             builder.line_to(point(1.0, 0.0));
             builder.close();
         });
+
+        // let bubble_label_mesh = builder.buil
         
         self.meshes = [bubble_mesh, bubble_edge_mesh, bubble_v_mesh];
         self.update_mesh();

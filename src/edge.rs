@@ -29,6 +29,6 @@ impl  Edge {
         self.mesh.position = [self.position_from.x, self.position_from.y];
         self.mesh.scale = l;
         self.mesh.material.color = [0.5, 0.7, 0.7, 0.7];
-        self.mesh.width = 0.2;
+        self.mesh.width = 1.0;
     }
 }

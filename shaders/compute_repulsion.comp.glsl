@@ -50,7 +50,7 @@ int compute_repulsion(uint bubble_index) {
         // float len = sqrt(d_ab.x * d_ab.x + d_ab.y * d_ab.y);
         float len = length(d_ab);
         vec2 nd_ab = d_ab / len;
-        float repulsive_force_factor = 1;
+        float repulsive_force_factor = 30;
 
         vec2 repulsive_force = nd_ab * (repulsive_force_factor * input_bubble.m * bubble_b.m / (len * len));
         vec2 a_a = repulsive_force * (-1.0 / input_bubble.m);
