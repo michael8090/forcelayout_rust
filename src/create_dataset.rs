@@ -1,6 +1,14 @@
+use crate::forcelayout_graph::Bubble;
+use crate::forcelayout_graph::BubbleElement;
+use crate::forcelayout_graph::Edge;
+use crate::forcelayout_graph::EdgeElement;
+use crate::graph::Graph;
+use crate::graph::Node;
 use crate::mesh::Mesh;
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
+use std::rc::Rc;
 use serde_json::{Result, Value};
 
 use super::bubble::*;
@@ -14,9 +22,9 @@ fn get_random_vec2() -> Vector2 {
     }
 }
 
-pub fn create_bubbles(bubble_count: u64) -> Vec<Bubble> {
-    let mut bubbles: Vec<Bubble> = (0..bubble_count)
-        .map(|_| Bubble {
+pub fn create_bubbles(bubble_count: u64) -> Vec<Rc<RefCell<Bubble>>> {
+    let mut bubbles = (0..bubble_count)
+        .map(|_| Bubble::new(BubbleElement {
             position: get_random_vec2().add_s(-0.5).mul_s(100.0),
             size: rand::random::<f32>() * 24.0 + 1.0,
             // size: 100.0,
@@ -24,33 +32,32 @@ pub fn create_bubbles(bubble_count: u64) -> Vec<Bubble> {
             a: Vector2{x: 0.0, y: 0.0},
             meshes: [Mesh::default(), Mesh::default(), Mesh::default()],
             label: String::from(""),
-        })
+        }))
         .collect();
     // bubbles[0].position = Vector2{x: 0.0, y: 0.0};
     // bubbles[1].position = Vector2{x: 1.0, y: 0.0};
     bubbles
 }
 
-pub fn create_edges(bubble_count: usize, group_size: usize) -> Vec<Edge> {
+pub fn create_edges(bubbles: Vec<Rc<RefCell<Node<BubbleElement, EdgeElement>>>>, group_size: usize) -> Vec<Rc<RefCell<Edge>>> {
     let mut edges = vec![];
+    let bubble_count = bubbles.len();
     let group_count = ((bubble_count as f32) / (group_size as f32)).ceil() as usize;
     for i in 0..group_count {
         let group_item_count = (bubble_count - i * group_size).min(group_size);
         for j in 1..group_item_count {
-            edges.push(Edge {
-                position_from: get_random_vec2(),
-                position_to: get_random_vec2(),
-                from: 0 + i*group_size,
-                to: j + i*group_size,
+            let from = bubbles[0 + i*group_size];
+            let to = bubbles[j + i*group_size];
+            edges.push(Edge::new(&from, &to, EdgeElement {
                 pull_force: 0.0,
                 mesh: Mesh::default(),
-            })
+            }))
         }
     }
     edges
 }
 
-pub fn create_dataset_from_file() -> Result<(Vec<Bubble>, Vec<Edge>)> {
+pub fn create_dataset_from_file() -> Result<(Vec<Rc<RefCell<Bubble>>>, Vec<Rc<RefCell<Edge>>>)> {
     // let mut file = File::open("datasets/miserables.json").unwrap();
     let bytes = include_bytes!("datasets/miserables.json");
     let data = String::from_utf8_lossy(bytes).into_owned();
@@ -63,7 +70,7 @@ pub fn create_dataset_from_file() -> Result<(Vec<Bubble>, Vec<Edge>)> {
         node["id"].as_str().unwrap()
     }).collect();
 
-    let mut bubbles: Vec<Bubble> = nodes.into_iter().map(|node| Bubble {
+    let mut bubbles: Vec<Rc<RefCell<Bubble>>> = nodes.into_iter().map(|node| Bubble::new(BubbleElement {
         position: get_random_vec2().add_s(-0.5).mul_s(100.0),
         size: 100.0,
         // size: 100.0,
@@ -71,35 +78,31 @@ pub fn create_dataset_from_file() -> Result<(Vec<Bubble>, Vec<Edge>)> {
         a: Vector2{x: 0.0, y: 0.0},
         meshes: [Mesh::default(), Mesh::default(), Mesh::default()],
         label: String::from(node["id"].as_str().unwrap()),
-    })
+    }))
     .collect();
 
     let links = v["links"].as_array().unwrap();
     
-    let edges = links.into_iter().map(|link| {
+    let edges: Vec<Rc<RefCell<Edge>>> = links.into_iter().map(|link| {
         let source = link["source"].as_str().unwrap();
-        let from = (&node_names).into_iter().position(|&name| name == source).unwrap();
-        {
-            let from_bubble = &mut bubbles[from];
-            from_bubble.size += 10.0;
-        }
+        let from_index = (&node_names).into_iter().position(|&name| name == source).unwrap();
+        // {
+        let from_bubble = &mut bubbles[from_index];
+        from_bubble.borrow().element.size += 10.0;
+        // }
 
         let target = link["target"].as_str().unwrap();
-        let to = (&node_names).into_iter().position(|&name| name == target).unwrap();
+        let to_index = (&node_names).into_iter().position(|&name| name == target).unwrap();
         
-        {
-            let to_bubble = &mut bubbles[to];
-            to_bubble.size += 10.0;
-        }
+        // {
+        let to_bubble = &mut bubbles[to_index];
+        to_bubble.borrow().element.size += 10.0;
+        // }
 
-        Edge {
-            position_from: get_random_vec2(),
-            position_to: get_random_vec2(),
-            from,
-            to,
+        Edge::new(from_bubble, to_bubble, EdgeElement {
             pull_force: 0.0,
             mesh: Mesh::default(),
-        }
+        })
     })
     .collect();
 

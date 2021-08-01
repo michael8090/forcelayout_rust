@@ -1,10 +1,12 @@
+use std::{cell::RefCell};
+
 pub struct IdGenerator {
     id: i32,
     count: i32,
 }
 
 impl IdGenerator {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             id: -1,
             count: 0
@@ -23,3 +25,5 @@ impl IdGenerator {
         self.count
     }
 }
+
+thread_local!(pub static ID_GENERATOR: RefCell<IdGenerator> = RefCell::new(IdGenerator::new()));

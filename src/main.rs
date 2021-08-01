@@ -10,9 +10,12 @@ mod mesh;
 mod physics;
 mod project;
 mod shape_builder;
+mod graph;
+mod forcelayout_graph;
 
-use bubble::Bubble;
-use edge::Edge;
+// use bubble::Bubble;
+// use edge::Edge;
+use forcelayout_graph::*;
 use forcelayout::*;
 
 use gpu_forcelayout::{BubbleGpuEntity, EdgeEntity};
@@ -38,6 +41,10 @@ use winit::window::Window;
 use wgpu::{util::DeviceExt, BlendFactor, BlendOperation, BlendState, Buffer, Queue, RenderPass};
 
 use futures::executor::block_on;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::iter::Map;
+use std::rc::Rc;
 use std::{
     borrow::Borrow,
     f64::consts,
@@ -171,20 +178,26 @@ fn draw_mesh<'a, 'b, 'c, 'd>(
     )
 }
 
-fn create_forcelayout_instance(bubbles: &Vec<Bubble>, edges: &Vec<Edge>) -> gpu_forcelayout::GpuForcelayout {
+fn create_forcelayout_instance(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<Rc<RefCell<Edge>>>) -> gpu_forcelayout::GpuForcelayout {
     let mut bubble_physics_entities: Vec<BubbleGpuEntity> = vec![];
     let mut edge_entities: Vec<EdgeEntity> = vec![];
-    for bubble in bubbles.iter() {
+    let id_idx_map = HashMap::<i32, usize>::new();
+    for (i, bubble) in bubbles.iter().enumerate() {
+        let bubble = bubble.get_mut();
+        id_idx_map.insert(bubble.id, i);
         bubble_physics_entities.push(BubbleGpuEntity {
             m: bubble.get_m(),
             _pad1: 0.0,
-            p: [bubble.position.x, bubble.position.y],
-            v: [bubble.v.x, bubble.v.y],
-            a: [bubble.a.x, bubble.a.y],
+            p: [bubble.element.position.x, bubble.element.position.y],
+            v: [bubble.element.v.x, bubble.element.v.y],
+            a: [bubble.element.a.x, bubble.element.a.y],
         });
     }
     for edge in edges.iter() {
-        edge_entities.push([edge.from as u32, edge.to as u32, 0, 0]);
+        let edge = edge.get_mut();
+        let from_idx = id_idx_map.get(&edge.from.get_mut().id).unwrap();
+        let to_idx = id_idx_map.get(&edge.to.get_mut().id).unwrap();
+        edge_entities.push([*from_idx as u32, *to_idx as u32, 0, 0]);
     }
 
     let gpu_forcelayout_instance =
@@ -264,7 +277,7 @@ fn main() {
 
     // init the game
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
-    let mut id = id_generator::IdGenerator::new();
+    // let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
     // up to about 20000
     let bubble_count = 500;
@@ -275,14 +288,14 @@ fn main() {
     let (mut bubbles, mut edges) = create_dataset::create_dataset_from_file().unwrap();
 
     for bubble in bubbles.first_mut() {
-        bubble.generate_mesh(&mut id, &mut shape_generator);
-        for mesh in bubble.meshes.iter_mut() {
+        bubble.get_mut().generate_mesh(&mut shape_generator);
+        for mesh in bubble.get_mut().element.meshes.iter_mut() {
             mesh.create_buffer_and_upload(&device);
         }
     }
 
     for edge in edges.first_mut() {
-        edge.generate_mesh(&mut id, &mut shape_generator);
+        edge.generate_mesh(&mut shape_generator);
         edge.mesh.create_buffer_and_upload(&device);
     }
 

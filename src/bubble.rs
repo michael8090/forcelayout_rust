@@ -1,93 +1,96 @@
-use lyon::{geom::{Rect, euclid::{Point2D, Size2D}}, lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, StrokeOptions, StrokeTessellator}, math::{Vector, point}, path::{FillRule, Path, Winding, traits::PathBuilder}};
+// use lyon::{geom::{Rect, euclid::{Point2D, Size2D}}, lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, StrokeOptions, StrokeTessellator}, math::{Vector, point}, path::{FillRule, Path, Winding, traits::PathBuilder}};
 
-use crate::{WithId, drawable::Drawable, id_generator::IdGenerator, mesh::Mesh, project::{fit_into_view, project_direction_vector}, shape_builder::*};
+// use crate::{WithId, drawable::Drawable, id_generator::IdGenerator, id_generator::ID_GENERATOR, mesh::Mesh, project::{fit_into_view, project_direction_vector}, shape_builder::*};
 
-use super::math::*;
-use super::physics::*;
-pub struct Bubble {
-    pub position: Vector2,
-    pub size: f32,
-    pub v: Vector2,
-    pub a: Vector2,
-    pub meshes: [Mesh; 3],
-    pub label: String,
-}
+// use super::math::*;
+// use super::physics::*;
+// pub struct Bubble {
+//     pub position: Vector2,
+//     pub size: f32,
+//     pub v: Vector2,
+//     pub a: Vector2,
+//     pub meshes: [Mesh; 3],
+//     pub label: String,
+// }
 
-impl Bubble {
-    pub fn generate_mesh(&mut self, id: &mut IdGenerator, builder: &mut ShapeBuilder) {
-        let bubble_mesh = builder.build_fill(id.get(), |builder| {
-            builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
-        });
+// impl Bubble {
+//     pub fn generate_mesh(&mut self, builder: &mut ShapeBuilder) {
+//         ID_GENERATOR.with(|id| {
+//             let mut id = id.borrow_mut();
+//             let bubble_mesh = builder.build_fill(id.get(), |builder| {
+//                 builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
+//             });
+    
+//             let bubble_edge_mesh = builder.build_stroke(id.get(), |builder| {
+//                 builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
+//             });
+    
+//             let bubble_v_mesh = builder.build_stroke(id.get(), |builder| {
+//                 builder.begin(point(0.0, 0.0));
+//                 builder.line_to(point(1.0, 0.0));
+//                 builder.close();
+//             });
+    
+//             // let bubble_label_mesh = builder.buil
+            
+//             self.meshes = [bubble_mesh, bubble_edge_mesh, bubble_v_mesh];
+//             self.update_mesh();
+//         });
+//     }
 
-        let bubble_edge_mesh = builder.build_stroke(id.get(), |builder| {
-            builder.add_circle(Point2D::new(0.0, 0.0), 1.0, Winding::Positive);
-        });
+//     pub fn update_mesh(&mut self) {
+//         for mesh in self.meshes.iter_mut() {
+//             mesh.position = [self.position.x, self.position.y];
+//         }
+//         let view_scale_factor = 0.1;
+//         let bubble_mesh = &mut self.meshes[0];
+//         bubble_mesh.material.color = [self.a.len() * 5.0, 0.5, 0.5, 1.0];
+//         bubble_mesh.scale = self.size * 0.9 * view_scale_factor;
 
-        let bubble_v_mesh = builder.build_stroke(id.get(), |builder| {
-            builder.begin(point(0.0, 0.0));
-            builder.line_to(point(1.0, 0.0));
-            builder.close();
-        });
-
-        // let bubble_label_mesh = builder.buil
+//         let bubble_edge_mesh = &mut self.meshes[1];
+//         bubble_edge_mesh.scale = self.size * 0.95 * view_scale_factor;
         
-        self.meshes = [bubble_mesh, bubble_edge_mesh, bubble_v_mesh];
-        self.update_mesh();
-    }
+//         bubble_edge_mesh.width = 0.1;
+//         bubble_edge_mesh.material.color = [0.9, 0.5, 0.5, 1.0];
 
-    pub fn update_mesh(&mut self) {
-        for mesh in self.meshes.iter_mut() {
-            mesh.position = [self.position.x, self.position.y];
-        }
-        let view_scale_factor = 0.1;
-        let bubble_mesh = &mut self.meshes[0];
-        bubble_mesh.material.color = [self.a.len() * 5.0, 0.5, 0.5, 1.0];
-        bubble_mesh.scale = self.size * 0.9 * view_scale_factor;
+//         let bubble_v_mesh = &mut self.meshes[2];
+//         let v = &self.v;
+//         let p = Vector::new(v.x, v.y);
+//         bubble_v_mesh.rotation = p.angle_from_x_axis().get();
+//         let v_len = (v.len() + 1.0).log10() * 30.0;
+//         bubble_v_mesh.scale = v_len;
 
-        let bubble_edge_mesh = &mut self.meshes[1];
-        bubble_edge_mesh.scale = self.size * 0.95 * view_scale_factor;
-        
-        bubble_edge_mesh.width = 0.1;
-        bubble_edge_mesh.material.color = [0.9, 0.5, 0.5, 1.0];
+//         bubble_v_mesh.material.color = [1.0, 0.8, 0.2, 0.1];
+//         bubble_v_mesh.width = 0.2;
+//     }
+// }
 
-        let bubble_v_mesh = &mut self.meshes[2];
-        let v = &self.v;
-        let p = Vector::new(v.x, v.y);
-        bubble_v_mesh.rotation = p.angle_from_x_axis().get();
-        let v_len = (v.len() + 1.0).log10() * 30.0;
-        bubble_v_mesh.scale = v_len;
+// impl Physics for Bubble {
+//     fn get_m(&self) -> f32 {
+//         self.size
+//     }
 
-        bubble_v_mesh.material.color = [1.0, 0.8, 0.2, 0.1];
-        bubble_v_mesh.width = 0.2;
-    }
-}
+//     fn get_v(&self) -> &Vector2 {
+//         &self.v
+//     }
 
-impl Physics for Bubble {
-    fn get_m(&self) -> f32 {
-        self.size
-    }
+//     fn set_v(&mut self, v: &Vector2) -> () {
+//         Vector2::assign(&mut self.v, v);
+//     }
 
-    fn get_v(&self) -> &Vector2 {
-        &self.v
-    }
+//     fn get_p(&self) -> &Vector2 {
+//         &self.position
+//     }
 
-    fn set_v(&mut self, v: &Vector2) -> () {
-        Vector2::assign(&mut self.v, v);
-    }
+//     fn set_p(&mut self, p: &Vector2) -> () {
+//         Vector2::assign(&mut self.position, p);
+//     }
 
-    fn get_p(&self) -> &Vector2 {
-        &self.position
-    }
+//     fn get_a(&self) -> &Vector2 {
+//         &self.a
+//     }
 
-    fn set_p(&mut self, p: &Vector2) -> () {
-        Vector2::assign(&mut self.position, p);
-    }
-
-    fn get_a(&self) -> &Vector2 {
-        &self.a
-    }
-
-    fn set_a(&mut self, a: &Vector2) -> () {
-        Vector2::assign(&mut self.a, a);
-    }
-}
+//     fn set_a(&mut self, a: &Vector2) -> () {
+//         Vector2::assign(&mut self.a, a);
+//     }
+// }
