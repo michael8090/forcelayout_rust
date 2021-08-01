@@ -18,7 +18,7 @@ impl<T, U> Node<T, U> {
     pub fn new(element: T) -> Rc<RefCell<Self>>  {
         id_generator::ID_GENERATOR.with(|ig| {
             Rc::new(RefCell::new(Node {
-                id: ig.get_mut().get(),
+                id: ig.borrow_mut().get(),
                 element,
                 in_edges: vec![],
                 out_edges: vec![],
@@ -38,7 +38,7 @@ impl<T, U> Edge<T, U> {
     pub fn new(from: &Rc<RefCell<Node<T, U>>>, to: &Rc<RefCell<Node<T, U>>>, element: U) -> Rc<RefCell<Self>>  {
         id_generator::ID_GENERATOR.with(|ig| {
             Rc::new(RefCell::new(Edge {
-                id: ig.get_mut().get(),
+                id: ig.borrow_mut().get(),
                 element,
                 from: from.clone(),
                 to: to.clone(),

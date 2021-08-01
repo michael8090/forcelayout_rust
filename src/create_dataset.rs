@@ -46,8 +46,8 @@ pub fn create_edges(bubbles: Vec<Rc<RefCell<Node<BubbleElement, EdgeElement>>>>,
     for i in 0..group_count {
         let group_item_count = (bubble_count - i * group_size).min(group_size);
         for j in 1..group_item_count {
-            let from = bubbles[0 + i*group_size];
-            let to = bubbles[j + i*group_size];
+            let from = bubbles[0 + i*group_size].clone();
+            let to = bubbles[j + i*group_size].clone();
             edges.push(Edge::new(&from, &to, EdgeElement {
                 pull_force: 0.0,
                 mesh: Mesh::default(),
@@ -87,16 +87,16 @@ pub fn create_dataset_from_file() -> Result<(Vec<Rc<RefCell<Bubble>>>, Vec<Rc<Re
         let source = link["source"].as_str().unwrap();
         let from_index = (&node_names).into_iter().position(|&name| name == source).unwrap();
         // {
-        let from_bubble = &mut bubbles[from_index];
-        from_bubble.borrow().element.size += 10.0;
+        let from_bubble = &mut bubbles[from_index].clone();
+        from_bubble.borrow_mut().element.size += 10.0;
         // }
 
         let target = link["target"].as_str().unwrap();
         let to_index = (&node_names).into_iter().position(|&name| name == target).unwrap();
         
         // {
-        let to_bubble = &mut bubbles[to_index];
-        to_bubble.borrow().element.size += 10.0;
+        let to_bubble = &mut bubbles[to_index].clone();
+        to_bubble.borrow_mut().element.size += 10.0;
         // }
 
         Edge::new(from_bubble, to_bubble, EdgeElement {

@@ -40,7 +40,7 @@ impl Edge {
         let d = position_to.sub(&position_from);
         let l = d.len();
         let p = Vector::new(d.x, d.y);
-        let mut mesh = self.element.mesh;
+        let mut mesh = &mut self.element.mesh;
         mesh.rotation = p.angle_from_x_axis().get();
         mesh.position = [position_from.x, position_from.y];
         mesh.scale = l;
@@ -75,7 +75,7 @@ impl Bubble {
     }
 
     pub fn update_mesh(&mut self) {
-        let element = self.element;
+        let element = &mut self.element;
         for mesh in element.meshes.iter_mut() {
             mesh.position = [element.position.x, element.position.y];
         }

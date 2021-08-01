@@ -41,7 +41,7 @@ use winit::window::Window;
 use wgpu::{util::DeviceExt, BlendFactor, BlendOperation, BlendState, Buffer, Queue, RenderPass};
 
 use futures::executor::block_on;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::iter::Map;
 use std::rc::Rc;
@@ -295,8 +295,8 @@ fn main() {
     }
 
     for edge in edges.first_mut() {
-        edge.generate_mesh(&mut shape_generator);
-        edge.mesh.create_buffer_and_upload(&device);
+        edge.get_mut().generate_mesh(&mut shape_generator);
+        edge.get_mut().element.mesh.create_buffer_and_upload(&device);
     }
 
 
@@ -305,7 +305,7 @@ fn main() {
 
     // end init
 
-    let primitive_count = bubble_count as usize * bubbles[0].meshes.len() + edges.len();
+    let primitive_count = bubble_count as usize * bubbles[0].get_mut().element.meshes.len() + edges.len();
     let mut primitives: Vec<Primitive> = Vec::with_capacity(primitive_count);
     for _ in 0..primitive_count {
         primitives.push(Primitive::DEFAULT.clone());
@@ -567,7 +567,7 @@ fn main() {
                     x: rand::random(),
                     y: rand::random(),
                 };
-                b.position = random_vec2.add_s(-0.5).mul_s(100.0);
+                b.get_mut().element.position = random_vec2.add_s(-0.5).mul_s(100.0);
             }
             gpu_forcelayout_instance = create_forcelayout_instance(&bubbles, &edges);
         }
@@ -582,6 +582,7 @@ fn main() {
 
         // read layout data back from gpu
         for (e, b) in result.iter().zip(&mut bubbles) {
+            let b = b.get_mut().element;
             b.a.x = e.a[0];
             b.a.y = e.a[1];
 
@@ -591,26 +592,26 @@ fn main() {
             b.position.x = e.p[0];
             b.position.y = e.p[1];
         }
-        for edge in edges.iter_mut() {
-            edge.position_from.set(&(&bubbles[edge.from]).position);
-            edge.position_to.set(&(&bubbles[edge.to]).position);
-        }
+        // for edge in edges.iter_mut() {
+        //     edge.position_from.set(&(&bubbles[edge.from]).position);
+        //     edge.position_to.set(&(&bubbles[edge.to]).position);
+        // }
 
         // update mesh
         for bubble in bubbles.iter_mut() {
-            bubble.update_mesh();
+            bubble.get_mut().update_mesh();
         }
         for edge in edges.iter_mut() {
-            edge.update_mesh();
+            edge.get_mut().update_mesh();
         }
 
         {
             // fit into window
-            let first_bubble = &bubbles[0];
-            let mut min = first_bubble.position.clone();
+            let first_bubble = &bubbles[0].get_mut();
+            let mut min = first_bubble.element.position.clone();
             let mut max = min.clone();
             for b in &bubbles {
-                let p = &b.position;
+                let p = &b.get_mut().element.position;
                 if p.x <= min.x {
                     min.x = p.x;
                 }
@@ -654,44 +655,38 @@ fn main() {
             // };
 
             for b in &mut bubbles {
-                let new_pos = fit_into_view(&b.position, &bubble_rect, &view_rect);
-                let d = new_pos.sub(&b.position);
-                for m in &mut b.meshes {
+                let new_pos = fit_into_view(&b.get_mut().element.position, &bubble_rect, &view_rect);
+                let d = new_pos.sub(&b.get_mut().element.position);
+                for m in &mut b.get_mut().element.meshes {
                     m.position =  [m.position[0] + d.x, m.position[1] + d.y];
                 }
             }
 
             for edge in edges.iter_mut() {
                 // it's a hack here, and I know the maintenance sucks
-                let bubble_from_mesh_pos = &(&bubbles[edge.from]).meshes[0].position;
-                let bubble_to_mesh_pos = &(&bubbles[edge.to]).meshes[0].position;
+                // let bubble_from_mesh_pos = &edge.get_mut().from.get_mut().element.meshes[0].position;
+                // let bubble_to_mesh_pos = &edge.get_mut().to.get_mut().element.meshes[0].position;
 
-                edge.position_from = Vector2 {
-                    x: bubble_from_mesh_pos[0],
-                    y: bubble_from_mesh_pos[1],
-                };
-                edge.position_to = Vector2 {
-                    x: bubble_to_mesh_pos[0],
-                    y: bubble_to_mesh_pos[1],
-                };
-                edge.update_mesh();
+                // let element = edge.get_mut().element;
+
+                edge.get_mut().update_mesh();
             }
         }
 
         // update gpu primitives
         let l = bubbles.len();
-        let ml = bubbles[0].meshes.len();
+        let ml = bubbles[0].get_mut().element.meshes.len();
         let mut bubble_ranges = vec![];
         let edge_range = (l * ml) as u32..primitive_count as u32;
 
         for i in 0..ml {
             bubble_ranges.push((i * l) as u32..(i * l + l) as u32);
             for j in 0..l {
-                primitives[j + i * l] = bubbles[j].meshes[i].get_uniform_buffer();
+                primitives[j + i * l] = bubbles[j].get_mut().element.meshes[i].get_uniform_buffer();
             }
         }
         for (edge, i) in edges.iter_mut().zip(edge_range.clone()) {
-            primitives[i as usize] = edge.mesh.get_uniform_buffer();
+            primitives[i as usize] = edge.get_mut().element.mesh.get_uniform_buffer();
         }
         // end do forcelayout
 
@@ -806,12 +801,14 @@ fn main() {
         // }
 
         let mut mesh_range = vec![];
-        let bubble_meshes = &bubbles[0].meshes;
+        let bubble_0: Rc<RefCell<Bubble>> = bubbles[0].clone();
+        let bubble_meshes = &(bubble_0.get_mut().element.meshes);
         for (mesh, range) in bubble_meshes.iter().zip(&bubble_ranges) {
             mesh_range.push((mesh, range));
         }
 
-        let edge_mesh = &edges[0].mesh;
+        let edge_0: Rc<RefCell<Edge>> = edges[0].clone();
+        let edge_mesh = &(edge_0.get_mut().element.mesh);
         mesh_range.push((&edge_mesh, &edge_range));
 
         for group_index in 0..prim_group_count {

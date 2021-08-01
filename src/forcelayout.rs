@@ -11,15 +11,19 @@ use crate::{physics::Physics};
 // use super::vector2::*;
 
 pub fn forcelayout(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<Rc<RefCell<Edge>>>) {
+    // let a: Vec<Rc<RefCell<Bubble>>> = vec![];
+    // let a0 = a[0];
+    // let a1 = a0.borrow_mut();
+    // let a2 = a1.borrow_mut();
     let time_step = 0.5;
     let bubble_len = bubbles.len();
     for i in 0..bubble_len {
-        // let x = bubbles[i];
-        // let y = x.borrow_mut();
-        // let z = y.borrow_mut();
+        let x = bubbles[i];
+        let mut y = x.borrow_mut();
+        let mut z = y.borrow_mut();
 
         // cannot use borrow_mut here, why?
-        let a = bubbles[i].get_mut().element.a;
+        let mut a = ((bubbles[i]).borrow_mut()).element.a;
         a.x = 0.0;
         a.y = 0.0;
     }
