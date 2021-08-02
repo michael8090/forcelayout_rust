@@ -35,6 +35,11 @@ impl Edge {
         });
     }
     pub fn update_mesh(&mut self) {
+        // this issue causes the referred type is not what I want, but the type referring is not meant to be stable, so 
+        // it's really not a good idea to use Rc<RefCell<_>> everywhere, which makes much verbose codebase
+        // https://github.com/rust-lang/rust/issues/39232
+        // let a = self.from.borrow();
+        // let b = self.from.borrow_mut();
         let position_from = self.from.borrow().element.position;
         let position_to = self.to.borrow().element.position;
         let d = position_to.sub(&position_from);

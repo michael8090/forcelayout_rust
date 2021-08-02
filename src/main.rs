@@ -183,7 +183,7 @@ fn create_forcelayout_instance(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<R
     let mut edge_entities: Vec<EdgeEntity> = vec![];
     let mut id_idx_map = HashMap::<i32, usize>::new();
     for (i, bubble) in bubbles.iter().enumerate() {
-        let bubble = (*bubble).borrow_mut();
+        let bubble = bubble.borrow_mut();
         id_idx_map.insert(bubble.id, i);
         bubble_physics_entities.push(BubbleGpuEntity {
             m: bubble.get_m(),
@@ -613,10 +613,15 @@ fn main() {
 
         {
             // fit into window
-            let first_bubble_rc = bubbles[0].clone();
-            let first_bubble = (*first_bubble_rc).borrow();
-            let mut min = first_bubble.element.position.clone();
-            let mut max = min.clone();
+            let mut min;
+            let mut max;
+            {
+                let first_bubble_rc = bubbles[0].clone();
+                let first_bubble = (*first_bubble_rc).borrow();
+                min = first_bubble.element.position.clone();
+                max = min.clone();
+            }
+
             for b in bubbles.iter() {
                 let b = (**b).borrow();
                 let p = &b.element.position;

@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::f32::consts;
 use std::rc::Rc;
@@ -32,7 +31,7 @@ pub fn forcelayout(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<Rc<RefCell<Ed
 
         // unfortunately, `Rc` also has `borrow_mut`, so if we wrote `bubbles[i].borrow_mut()`, we
         // would get a mut reference of Rc, not the one of the boxed value
-        let mut a = ((*bubbles[i]).borrow_mut()).element.a;
+        let mut a = bubbles[i].borrow_mut().element.a;
         a.x = 0.0;
         a.y = 0.0;
     }
@@ -60,10 +59,10 @@ pub fn forcelayout(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<Rc<RefCell<Ed
         //         (*bubble_b).a = (*bubble_b).a.add(&a_b);
         //     }
         // }
-        let mut bubble_a = (*bubbles[i]).borrow_mut();
+        let mut bubble_a = bubbles[i].borrow_mut();
         // let bubble_a = imr_a as *mut Bubble;
         for j in (i + 1)..bubble_len {
-            let mut bubble_b = (*bubbles[j]).borrow_mut();
+            let mut bubble_b = bubbles[j].borrow_mut();
             // let bubble_b = imr_b as *mut Bubble;
 
             let m_a = bubble_a.get_m();
@@ -91,14 +90,14 @@ pub fn forcelayout(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<Rc<RefCell<Ed
         // let a = RefCell::borrow_mut(edges[i]);
         // let a = RefCell::borrow_mut(&edges[i]);
 
-        let mut edge = (*(edges[i])).borrow_mut();
-        let from_rc = edge.from.clone();
-        let to_rc = edge.to.clone();
-        let mut bubble_from = (*from_rc).borrow_mut();
-        let mut bubble_to = (*to_rc).borrow_mut();
+        let mut edge = edges[i].borrow_mut();
+        let bubble_from_rc = edge.from.clone();
+        let mut bubble_from = bubble_from_rc.borrow_mut();
+        let bubble_to_rc = edge.to.clone();
+        let mut bubble_to = bubble_to_rc.borrow_mut();
         // unsafe {
-            let m_from = bubble_from.borrow_mut().get_m();
-            let m_to = bubble_to.borrow_mut().get_m();
+            let m_from = bubble_from.get_m();
+            let m_to = bubble_to.get_m();
 
             let d_from_to = bubble_to.element.position.sub(&bubble_from.element.position);
             let pull_force_factor = 1.0;
@@ -114,7 +113,7 @@ pub fn forcelayout(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<Rc<RefCell<Ed
 
     for bubble in bubbles.iter() {
         // `element` doesn't have a mut notation, why is it writable?
-        let element = &mut (**bubble).borrow_mut().element;
+        let element = &mut bubble.borrow_mut().element;
         element.v = element.v.add(&element.a.mul_s(time_step));
 
         // damping, the higher the velocity is, the quicker it damps
