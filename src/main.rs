@@ -181,9 +181,9 @@ fn draw_mesh<'a, 'b, 'c, 'd>(
 fn create_forcelayout_instance(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<Rc<RefCell<Edge>>>) -> gpu_forcelayout::GpuForcelayout {
     let mut bubble_physics_entities: Vec<BubbleGpuEntity> = vec![];
     let mut edge_entities: Vec<EdgeEntity> = vec![];
-    let id_idx_map = HashMap::<i32, usize>::new();
+    let mut id_idx_map = HashMap::<i32, usize>::new();
     for (i, bubble) in bubbles.iter().enumerate() {
-        let bubble = bubble.get_mut();
+        let bubble = (*bubble).borrow_mut();
         id_idx_map.insert(bubble.id, i);
         bubble_physics_entities.push(BubbleGpuEntity {
             m: bubble.get_m(),
@@ -194,9 +194,9 @@ fn create_forcelayout_instance(bubbles: &Vec<Rc<RefCell<Bubble>>>, edges: &Vec<R
         });
     }
     for edge in edges.iter() {
-        let edge = edge.get_mut();
-        let from_idx = id_idx_map.get(&edge.from.get_mut().id).unwrap();
-        let to_idx = id_idx_map.get(&edge.to.get_mut().id).unwrap();
+        let edge = (*edge).borrow_mut();
+        let from_idx = id_idx_map.get(&(*edge.from).borrow().id).unwrap();
+        let to_idx = id_idx_map.get(&(*edge.to).borrow().id).unwrap();
         edge_entities.push([*from_idx as u32, *to_idx as u32, 0, 0]);
     }
 
@@ -288,15 +288,17 @@ fn main() {
     let (mut bubbles, mut edges) = create_dataset::create_dataset_from_file().unwrap();
 
     for bubble in bubbles.first_mut() {
-        bubble.get_mut().generate_mesh(&mut shape_generator);
-        for mesh in bubble.get_mut().element.meshes.iter_mut() {
+        let mut bubble = (*bubble).borrow_mut();
+        bubble.generate_mesh(&mut shape_generator);
+        for mesh in bubble.element.meshes.iter_mut() {
             mesh.create_buffer_and_upload(&device);
         }
     }
 
     for edge in edges.first_mut() {
-        edge.get_mut().generate_mesh(&mut shape_generator);
-        edge.get_mut().element.mesh.create_buffer_and_upload(&device);
+        let mut edge = (*edge).borrow_mut();
+        edge.generate_mesh(&mut shape_generator);
+        edge.element.mesh.create_buffer_and_upload(&device);
     }
 
 
@@ -305,7 +307,7 @@ fn main() {
 
     // end init
 
-    let primitive_count = bubble_count as usize * bubbles[0].get_mut().element.meshes.len() + edges.len();
+    let primitive_count = bubble_count as usize * (*bubbles[0]).borrow().element.meshes.len() + edges.len();
     let mut primitives: Vec<Primitive> = Vec::with_capacity(primitive_count);
     for _ in 0..primitive_count {
         primitives.push(Primitive::DEFAULT.clone());
@@ -563,11 +565,12 @@ fn main() {
         if scene.need_reset {
             scene.need_reset = false;
             for b in &mut bubbles {
+                let mut b = (*b).borrow_mut();
                 let random_vec2 = Vector2 {
                     x: rand::random(),
                     y: rand::random(),
                 };
-                b.get_mut().element.position = random_vec2.add_s(-0.5).mul_s(100.0);
+                b.element.position = random_vec2.add_s(-0.5).mul_s(100.0);
             }
             gpu_forcelayout_instance = create_forcelayout_instance(&bubbles, &edges);
         }
@@ -582,7 +585,8 @@ fn main() {
 
         // read layout data back from gpu
         for (e, b) in result.iter().zip(&mut bubbles) {
-            let b = b.get_mut().element;
+            // let b = b.get_mut().element;
+            let b = &mut (*b).borrow_mut().element;
             b.a.x = e.a[0];
             b.a.y = e.a[1];
 
@@ -599,19 +603,23 @@ fn main() {
 
         // update mesh
         for bubble in bubbles.iter_mut() {
-            bubble.get_mut().update_mesh();
+            let mut bubble = (*bubble).borrow_mut();
+            bubble.update_mesh();
         }
         for edge in edges.iter_mut() {
-            edge.get_mut().update_mesh();
+            let mut edge = (*edge).borrow_mut();
+            edge.update_mesh();
         }
 
         {
             // fit into window
-            let first_bubble = &bubbles[0].get_mut();
+            let first_bubble_rc = bubbles[0].clone();
+            let first_bubble = (*first_bubble_rc).borrow();
             let mut min = first_bubble.element.position.clone();
             let mut max = min.clone();
-            for b in &bubbles {
-                let p = &b.get_mut().element.position;
+            for b in bubbles.iter() {
+                let b = (**b).borrow();
+                let p = &b.element.position;
                 if p.x <= min.x {
                     min.x = p.x;
                 }
@@ -654,10 +662,11 @@ fn main() {
             //     height: scene.window_size.height as f32 * 0.125
             // };
 
-            for b in &mut bubbles {
-                let new_pos = fit_into_view(&b.get_mut().element.position, &bubble_rect, &view_rect);
-                let d = new_pos.sub(&b.get_mut().element.position);
-                for m in &mut b.get_mut().element.meshes {
+            for b in bubbles.iter() {
+                let mut b = (**b).borrow_mut();
+                let new_pos = fit_into_view(&b.element.position, &bubble_rect, &view_rect);
+                let d = new_pos.sub(&b.element.position);
+                for m in &mut b.element.meshes {
                     m.position =  [m.position[0] + d.x, m.position[1] + d.y];
                 }
             }
@@ -669,24 +678,25 @@ fn main() {
 
                 // let element = edge.get_mut().element;
 
-                edge.get_mut().update_mesh();
+                let mut edge = (**edge).borrow_mut();
+                edge.update_mesh();
             }
         }
 
         // update gpu primitives
         let l = bubbles.len();
-        let ml = bubbles[0].get_mut().element.meshes.len();
+        let ml = (*bubbles[0].clone()).borrow().element.meshes.len();
         let mut bubble_ranges = vec![];
         let edge_range = (l * ml) as u32..primitive_count as u32;
 
         for i in 0..ml {
             bubble_ranges.push((i * l) as u32..(i * l + l) as u32);
             for j in 0..l {
-                primitives[j + i * l] = bubbles[j].get_mut().element.meshes[i].get_uniform_buffer();
+                primitives[j + i * l] = (*bubbles[j].clone()).borrow().element.meshes[i].get_uniform_buffer();
             }
         }
         for (edge, i) in edges.iter_mut().zip(edge_range.clone()) {
-            primitives[i as usize] = edge.get_mut().element.mesh.get_uniform_buffer();
+            primitives[i as usize] = (**edge).borrow().element.mesh.get_uniform_buffer();
         }
         // end do forcelayout
 
@@ -801,14 +811,16 @@ fn main() {
         // }
 
         let mut mesh_range = vec![];
-        let bubble_0: Rc<RefCell<Bubble>> = bubbles[0].clone();
-        let bubble_meshes = &(bubble_0.get_mut().element.meshes);
+        let bubble_0_rc = bubbles[0].clone();
+        let bubble_0 = (*bubble_0_rc).borrow();
+        let bubble_meshes = &(bubble_0.element.meshes);
         for (mesh, range) in bubble_meshes.iter().zip(&bubble_ranges) {
             mesh_range.push((mesh, range));
         }
 
-        let edge_0: Rc<RefCell<Edge>> = edges[0].clone();
-        let edge_mesh = &(edge_0.get_mut().element.mesh);
+        let edge_0_rc = edges[0].clone();
+        let edge_0 = (*edge_0_rc).borrow();
+        let edge_mesh = &(edge_0.element.mesh);
         mesh_range.push((&edge_mesh, &edge_range));
 
         for group_index in 0..prim_group_count {
