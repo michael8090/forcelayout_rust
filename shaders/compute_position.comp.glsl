@@ -35,7 +35,7 @@ layout(std140, binding = 2) buffer B3 {
 };
 
 int compute_position(uint bubble_index) {
-    float time_step = 0.5;
+    float time_step = 4.0;
     Bubble bubble = input_bubbles[bubble_index];
     bubble.v = bubble.v + bubble.a * time_step;
     
