@@ -1,7 +1,7 @@
 use std::{convert::TryInto, mem::size_of};
 
 use futures::executor::block_on;
-use wgpu::{BindGroup, BindGroupLayoutEntry, Buffer, BufferUsage, Instance};
+use wgpu::{BindGroup, BindGroupLayoutEntry, Buffer, BufferUsages, Instance};
 
 use crate::math::Vector2;
 
@@ -45,11 +45,11 @@ pub type EdgeEntity = [u32; 4];
 // unsafe impl bytemuck::Pod for GpuForcelayout {}
 // unsafe impl bytemuck::Zeroable for GpuForcelayout {}
 
-fn create_buffer(device: &wgpu::Device, size: u64, usage: BufferUsage) -> Buffer {
+fn create_buffer(device: &wgpu::Device, size: u64, usage: BufferUsages) -> Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
         size,
-        // usage: BufferUsage::COPY_DST | BufferUsage::COPY_SRC | BufferUsage::STORAGE | BufferUsage::MAP_READ,
+        // usage: BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::STORAGE | BufferUsages::MAP_READ,
         usage,
         mapped_at_creation: false,
     })
@@ -59,11 +59,15 @@ impl GpuForcelayout {
     pub fn new(bubbles: Vec<BubbleGpuEntity>, edges: Vec<EdgeEntity>) -> Self {
         let globals:Globals = [bubbles.len() as u32, edges.len() as u32, 0, 0];
         
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor{
+            backends: wgpu::Backends::PRIMARY,
+            dx12_shader_compiler: wgpu::Dx12Compiler::default(),
+        });
         // create an adapter
         let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             compatible_surface: None,
+            force_fallback_adapter: false,
         }))
         .unwrap();
         // create a device and a queue
@@ -77,21 +81,21 @@ impl GpuForcelayout {
         ))
         .unwrap();
 
-        let compute_repulsion_module = &device.create_shader_module(&wgpu::include_spirv!("./../shaders/compute_repulsion.comp.spv"));
-        let compute_pull_module = &device.create_shader_module(&wgpu::include_spirv!("./../shaders/compute_pull.comp.spv"));
-        let compute_position_module = &device.create_shader_module(&wgpu::include_spirv!("./../shaders/compute_position.comp.spv"));
+        let compute_repulsion_module = &device.create_shader_module(wgpu::include_spirv!("./../shaders/compute_repulsion.comp.spv"));
+        let compute_pull_module = &device.create_shader_module(wgpu::include_spirv!("./../shaders/compute_pull.comp.spv"));
+        let compute_position_module = &device.create_shader_module(wgpu::include_spirv!("./../shaders/compute_position.comp.spv"));
 
         let bubble_buffer_size = (size_of::<BubbleGpuEntity>() * bubbles.len()) as u64;
         let edge_buffer_size = (size_of::<EdgeEntity>() * edges.len()) as u64;
         let globals_buffer_size = size_of::<Globals>() as u64;
-        let edge_buffer = create_buffer(&device, edge_buffer_size, BufferUsage::STORAGE | BufferUsage::COPY_DST);
-        let bubble_buffer = create_buffer(&device, bubble_buffer_size, BufferUsage::COPY_DST | BufferUsage::COPY_SRC | BufferUsage::STORAGE);
-        let globals_buffer = create_buffer(&device, globals_buffer_size, BufferUsage::COPY_SRC| BufferUsage::COPY_DST | BufferUsage::STORAGE);
-        let staging_buffer = create_buffer(&device, bubble_buffer_size, BufferUsage::COPY_DST | BufferUsage::MAP_READ);
+        let edge_buffer = create_buffer(&device, edge_buffer_size, BufferUsages::STORAGE | BufferUsages::COPY_DST);
+        let bubble_buffer = create_buffer(&device, bubble_buffer_size, BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::STORAGE);
+        let globals_buffer = create_buffer(&device, globals_buffer_size, BufferUsages::COPY_SRC| BufferUsages::COPY_DST | BufferUsages::STORAGE);
+        let staging_buffer = create_buffer(&device, bubble_buffer_size, BufferUsages::COPY_DST | BufferUsages::MAP_READ);
 
         let create_bind_group_layout_desc = |binding: u32, size: u64| wgpu::BindGroupLayoutEntry {
             binding,
-            visibility: wgpu::ShaderStage::COMPUTE,
+            visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Storage { read_only: false },
                 has_dynamic_offset: false,
@@ -108,21 +112,13 @@ impl GpuForcelayout {
             ],
         });
 
-        let create_bind_group_entry_desc = |binding, buffer| wgpu::BindGroupEntry {
-            binding,
-            resource: wgpu::BindingResource::Buffer {
-                buffer,
-                offset: 0,
-                size: None,
-            },
-        };
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &bind_group_layout,
             entries: &[
-                create_bind_group_entry_desc(0, &bubble_buffer),
-                create_bind_group_entry_desc(1, &globals_buffer),
-                create_bind_group_entry_desc(2, &edge_buffer),
+                wgpu::BindGroupEntry{ binding: 0, resource: bubble_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry{ binding: 1, resource: globals_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry{ binding: 2, resource: edge_buffer.as_entire_binding() },
             ],
         });
 
@@ -174,7 +170,7 @@ impl GpuForcelayout {
         let staging_buffer = &self.staging_buffer;
         let buffer_slice = staging_buffer.slice(..);
         // Gets the future representing when `staging_buffer` can be read from
-        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read, Result::unwrap);
 
         // Poll the device in a blocking manner so that our future resolves.
         // In an actual application, `device.poll(...)` should
@@ -182,7 +178,7 @@ impl GpuForcelayout {
         self.device.poll(wgpu::Maintain::Wait);
 
         // Awaits until `buffer_future` can be read from
-        if let Ok(()) = buffer_future.await {
+        // if let Ok(()) = buffer_future.await {
             // Gets contents of buffer
             let data = buffer_slice.get_mapped_range();
             // Since contents are got in bytes, this converts these bytes back to u32
@@ -196,9 +192,9 @@ impl GpuForcelayout {
             drop(data);
             staging_buffer.unmap();
             result
-        } else {
-            panic!("failed to run compute on gpu!")
-        }
+        // } else {
+        //     panic!("failed to run compute on gpu!")
+        // }
     }
 
     pub async fn compute(&mut self) -> Vec<BubbleGpuEntity> {
@@ -210,13 +206,13 @@ impl GpuForcelayout {
             pass.set_bind_group(0, &self.bind_group, &[]);
 
             pass.set_pipeline(&self.compute_repulsion_pipeline);
-            pass.dispatch(self.bubble_count, 1, 1);
+            pass.dispatch_workgroups(self.bubble_count, 1, 1);
             
             pass.set_pipeline(&self.compute_pull_pipeline);
-            pass.dispatch(self.bubble_count, 1, 1);
+            pass.dispatch_workgroups(self.bubble_count, 1, 1);
 
             pass.set_pipeline(&self.compute_position_pipeline);
-            pass.dispatch(self.bubble_count, 1, 1);
+            pass.dispatch_workgroups(self.bubble_count, 1, 1);
         }
         encoder.copy_buffer_to_buffer(&self.bubble_buffer, 0, &self.staging_buffer, 0, self.bubble_buffer_size);
         self.queue.submit(Some(encoder.finish()));
