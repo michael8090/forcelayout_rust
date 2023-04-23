@@ -47,6 +47,7 @@ use std::{
     usize,
 };
 
+use crate::gpu_forcelayout::GpuForcelayout;
 use crate::{math::Vector2, project::fit_into_view};
 
 //use log;
@@ -248,6 +249,7 @@ fn main() {
         window_size: PhysicalSize::new(size.width, size.height as u32),
         size_changed: true,
         need_reset: false,
+        need_update_gpu: false,
     };
 
     // create an instance
@@ -288,13 +290,15 @@ fn main() {
     // println!("{}", device.limits().max_uniform_buffer_binding_size);
     let mut id = id_generator::IdGenerator::new();
     let mut shape_generator = ShapeBuilder::new();
-    // up to about 20000
-    let bubble_count = 500;
-    let group_size = bubble_count as usize / 1;
+
     // let mut bubbles = create_dataset::create_bubbles(bubble_count);
     // let mut edges = create_dataset::create_edges(bubbles.len(), group_size);
 
     let (mut bubbles, mut edges) = create_dataset::create_dataset_from_file().unwrap();
+
+    // up to about 20000
+    let bubble_count = 5000;
+    let group_size = bubble_count as usize / 1;
 
     for bubble in bubbles.first_mut() {
         bubble.generate_mesh(&mut id, &mut shape_generator);
@@ -580,6 +584,10 @@ fn main() {
                 };
                 b.position = random_vec2.add_s(-0.5).mul_s(100.0);
             }
+        }
+
+        if scene.need_update_gpu {
+            scene.need_update_gpu = false;
             gpu_forcelayout_instance = create_forcelayout_instance(&bubbles, &edges);
         }
 
@@ -959,6 +967,7 @@ struct SceneParams {
     window_size: PhysicalSize<u32>,
     size_changed: bool,
     need_reset: bool,
+    need_update_gpu: bool,
 }
 
 fn update_inputs(
@@ -968,7 +977,7 @@ fn update_inputs(
     bubbles: &mut Vec<Bubble>,
     id: &mut id_generator::IdGenerator,
     builder: &mut ShapeBuilder,
-    device: &Device
+    device: &Device,
 ) -> bool {
     let mut mouse_position = Vector2::new();
     match event {
@@ -1048,6 +1057,7 @@ fn update_inputs(
             }
             VirtualKeyCode::Space => {
                 scene.need_reset = true;
+                scene.need_update_gpu = true;
             }
             _key => {}
         },
@@ -1073,6 +1083,7 @@ fn update_inputs(
                 mesh.create_buffer_and_upload(&device);
             }
             bubbles.push(bubble);
+            scene.need_update_gpu = true;
         },
         Event::WindowEvent { 
             event: WindowEvent::CursorMoved {
